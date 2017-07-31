@@ -2,7 +2,6 @@
 
 /* To do before releaasing to the OpLab:
 	+ should we demean y in cross-validation?? and standardise x??
-	+ add lassoreg, ridgereg convenience commands. (these need to be seperate ado files.)
 	+ export more scalars.
 	+ check remaining xx's.
 	+ comment lots.
@@ -12,8 +11,6 @@
 */
 
 /* To do before public release:
-	+ find alpha by c.v.
-	+ add noint option.
 	+ ensure can handle factor variables.
 	+ add capacity to handle logistic regressions.
 	+ add option to sort results by absolute coefficient size.
