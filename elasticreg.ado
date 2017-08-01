@@ -1,19 +1,5 @@
-
-
 /* To do before releaasing to the OpLab:
 	+ should we demean y in cross-validation?? and standardise x??
-	+ export more scalars.
-	+ check remaining xx's.
-	+ comment lots.
-	+ use cross() more.
-	+ check on glmnet data.
-	+ get code-review.
-*/
-
-/* To do before public release:
-	+ ensure can handle factor variables.
-	+ add capacity to handle logistic regressions.
-	+ add option to sort results by absolute coefficient size.
 */
 
 
@@ -22,12 +8,25 @@ program define elasticreg, eclass byable(recall)
 	version 15
 
 syntax varlist(min=3 numeric) [if] [in] [aweight], alpha(real) [ ///
-	lambda(real -1) numlambda(integer 100) lambda1se lambdamin   ///
+	lambda(real -1) numlambda(integer 100) lambdamin lambda1se   ///
 	numfolds(integer 10) epsilon(real 0.001) tol(real 0.001) ] 
 
 /*
-  EXPLAIN SYNTAX XX
-  if lambda is -1 (the default) it is found by cross-validation
+  alpha is the weight placed on the L1 (LASSO) constraint and (1-alpha) is the 
+	weight placed on the L2 (ridgereg) constraint.
+  lambda is the penalty for placed on larger coefficients. if lambda is -1 (the
+	default) it is found by cross-validation.
+  numlambda is the number of lambda for which beta is calculated when lambda is
+	being found via cross-validation.
+  If lambdamin, the lambda selected by cross-validation is that which minimises
+	MSE in the cross-validation samples. This is the default.
+  If lambda1se, the lambda selected by cross-validation is the largest within
+	a standard error of that selected under lambdamin.
+  numfolds is the number of folds used when cross-validating lambda. Its default
+	is 10.
+  epsilon is ratio of the smallest lambda tested to the largest. Its default is
+	0.001. The user will receive a warning if epsilon seems to be binding.
+  tol is the tolerance used when optimising beta.
 */
 marksample touse
 
@@ -121,11 +120,11 @@ forvalues j = 1/`K' {
 }
 
 * Estimate the regression within Mata, storing outputs in temporary matrices.
-tempname beta_handle lambda_handle beta0
+tempname beta_handle lambda_handle r2_handle beta0
 mata: notEstimation("`depvar_demeaned'", "`indvars_std'", "`weight_sum1'",      ///
 					`alpha', `numfolds', `numlambda', `lambda',	"`heuristic'",  ///
 					`epsilon', `tol',					                        ///
-					"`beta_handle'", "`lambda_handle'")
+					"`beta_handle'", "`lambda_handle'", "`r2_handle'")
 * Replace the estimated beta with one corresponding to the unstandardised
 * variables and note the list of the non-zero covariates.
 forvalues j = 1/`K' {
@@ -135,7 +134,7 @@ forvalues j = 1/`K' {
 		local varlist_nonzero `varlist_nonzero' `xname'
 	}
 }
-* Calculate the intercept as mean(Y) - beta' * mean(X) xx check this is standard.
+* Calculate the intercept as mean(Y) - beta' * mean(X)
 matrix `beta0' = `ymean' - `beta_handle''*`mean_x'
 matrix `beta_handle' = (`beta_handle' \ `beta0')
 * Set beta rownames.
@@ -145,8 +144,10 @@ matrix rownames `beta_handle' = `indvars' _cons
 matrix `beta_handle' = `beta_handle''
 ereturn post `beta_handle' , depname(`depvar') obs(`N') esample(`touse')
 ereturn scalar lambda = `lambda_handle'
+ereturn scalar r2     = `r2_handle'
 ereturn scalar alpha  = `alpha'
 ereturn local varlist_nonzero `varlist_nonzero'
+ereturn local cmd "elasticreg" 
 ereturn display
 	
 end
@@ -164,7 +165,7 @@ void notEstimation(
 	real scalar alpha, real scalar numfolds, real scalar numlambda, 
 	real scalar lambda, string scalar heuristic,
 	real scalar epsilon,  real scalar tol,
-	string scalar beta_handle, string scalar lambda_handle)
+	string scalar beta_handle, string scalar lambda_handle, string scalar r2_handle)
 {
 //
 
@@ -179,7 +180,7 @@ void notEstimation(
 	// variable and the dependent variable. (This is used both when calculating
 	// the series of lambda and, after cross-validation, when estimating the
 	// final beta, so for efficiency we calculate it only once).
-	cov_xy = x' * (weight :* y)
+	cov_xy = cross(x, weight, y)
 	// Select the series of lambda for which we will estimate beta. If lambda
 	// is provided, this is trivial. If not, the series depends on the data.
 	if (lambda==-1) lambda_vec = findLambda(cov_xy, alpha, numlambda, epsilon, tol)
@@ -190,21 +191,26 @@ void notEstimation(
 		x, y, weight, alpha, tol, lambda_vec)
 	// Estimate the beta on the full data, given the lambda selected.
 	beta = findAllBeta(x, y, weight, alpha, tol, lambda, cov_xy)	
-	// Store lambda, beta.)
+	// Calculate the weighted r2.
+	r2  = 1 - norm(y - x*beta)^2/norm(y)^2
+	// Store lambda, beta.
 	st_matrix(beta_handle, beta) 
 	st_numscalar(lambda_handle, lambda) 
+	st_numscalar(r2_handle, r2) 
 	
 }
 
 // This function calculates the series of lambda for which our model will be
 // estimated when no lambda has been provided. It calculates the largest lambda
 // such that all beta are guaranteed zero and then creates a decreasing sequence
-// of lambda which are equidistant in log space.
+// of lambda which are equidistant in log space. (When alpha is 0, there is no
+// largest lambda and so we calculate the one corresponding to alpha = 0.001,
+// we will later warn the user if this seems to low.)
 real colvector findLambda(real colvector cov_xy, 
 						  real scalar alpha, real scalar numlambda,
 						  real scalar epsilon, real scalar tol)
 {
-	lambda_max      = max(cov_xy)/max((alpha, 0.001))   //xx note this is a variation on the paper
+	lambda_max      = max(cov_xy)/max((alpha, 0.001)) 
 	lambda_min      = epsilon * lambda_max
 	loglambda_delta = (log(lambda_max) - log(lambda_min))/(numlambda-1)
 	lambda      = lambda_max :/ exp((0..(numlambda-1))*loglambda_delta)'
@@ -243,23 +249,30 @@ real scalar crossValidateLambda(
 		r = select(y, cv:==s) :- select(x, cv:==s)*beta
 		// and calculate the weighted MSE for each lambda.
 		for (l=1; l<=numlambda; l++) MSE[s,l] = 
-										r[,l]'*(r[,l]:*select(weight, cv:==s))
+									 cross(r[,l], select(weight, cv:==s), r[,l])
 	}
 	// Then collapse MSE(k,lambda) to mean MSE(lambda) and se MSE(lambda).
 	MSEmean = mean(MSE)
-	// xx cf p27 of Athie/Imbens NBER slides. should we use the sample s.d.? I think so?
-	MSEse   = sqrt(mean((MSE:-MSEmean):^2):/numlambda)
+	MSEse   = sqrt(mean((MSE:-MSEmean):^2):/(numlambda-1))
 	// Then apply the heuristic by which we select lambda -- the traditional
 	// choice is the MSE-minimising lambda but a more severe choice is the
 	// maximal lambda within a standard error of the MSE-minimising lambda.
 	minMSE = selectindex(MSEmean :== min(MSEmean))
 	if (heuristic == "min")       lambda = lambda_vec[minMSE]
-	else if (heuristic == "1se")  lambda = lambda_vec[max((MSEmean :< (MSEmean+MSEse)[minMSE]) :* (1..numlambda))]
+	else if (heuristic == "1se")  lambda = lambda_vec[
+					max((MSEmean :< (MSEmean+MSEse)[minMSE]) :* (1..numlambda))]
 	else _error("Heuristic must be 'min' or '1se'.")
 	// Warn the user if the MSE-minimising lambda is the smallest lambda tested.
 	if (lambda_vec[minMSE] == lambda_vec[length(lambda_vec)]) { 
 		display("Warning: the smallest λ tested was the MSE-minimising λ.")
 		display("Consider re-running estimation with a smaller epsilon.")
+	}
+	// Warn the user if the MSE-minimising lambda is the largest lambda tested
+	// if the maximal lambda was truncated.
+	if (lambda_vec[minMSE] == lambda_vec[1] & alpha < 0.001) { 
+		display("Warning: the largest λ tested was the MSE-minimising λ.")
+		display("elasticreg includes a very large λ for ridge regression but")
+		display("here it appears that this λ constraint is binding.")
 	}
 	return(lambda)
 }
@@ -277,7 +290,7 @@ real matrix findAllBeta(
 	wx2    = (x:^2)' * weight
 	// If cov_xy (the K vector with kth element equal to the 'triple inner
 	// product' of weight, x_k and y) has not been provided, calculate that too.
-	if (cov_xy == .) cov_xy = x'      * (weight :* y)
+	if (cov_xy == .) cov_xy = cross(x, weight, y)
 	// Instantiate a matrix storing the (weighted) covariances of the
 	// x's -- but leave this empty, as we only fill it as necessary.
 	cov_x = J(K, K, 0)
@@ -301,7 +314,6 @@ real matrix findAllBeta(
 	// isn't necessarily efficient -- sometimes hot starts are quicker.
 	else beta = findBeta(x, weight, J(K,1,0), lambda[1],
 												alpha, tol, cov_x, cov_xy, wx2)
-	
 	// Return the the beta matrix.
 	return(beta)
 }
@@ -377,7 +389,7 @@ real scalar softThreshold(real scalar z, real scalar gamma)
 void updateCovX(
 	real matrix x, real colvector w, real scalar j, real matrix cov_x)
 {	
-	this_cov = (w:*x[,j])'*x
+	this_cov = cross(x[,j], w, x)
 	cov_x[j,] = this_cov
 	cov_x[,j] = this_cov'
 	assert(issymmetric(cov_x))
