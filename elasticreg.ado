@@ -130,7 +130,7 @@ mata: notEstimation("`depvar_demeaned'", "`indvars_std'", "`weight_sum1'",      
 forvalues j = 1/`K' {
 	matrix `beta_handle'[`j',1] = `beta_handle'[`j',1] / `sd_x'[`j',1]
 	if `beta_handle'[`j',1] != 0 {
-		local xname : word 1 of `indvars'
+		local xname : word `j' of `indvars'
 		local varlist_nonzero `varlist_nonzero' `xname'
 	}
 }
