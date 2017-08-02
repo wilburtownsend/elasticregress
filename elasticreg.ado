@@ -1,8 +1,3 @@
-/* To do before releaasing to the OpLab:
-	+ should we demean y in cross-validation?? and standardise x??
-*/
-
-
 *! version 0.1
 program define elasticreg, eclass byable(recall)
 	version 15
@@ -206,6 +201,9 @@ void notEstimation(
 // of lambda which are equidistant in log space. (When alpha is 0, there is no
 // largest lambda and so we calculate the one corresponding to alpha = 0.001,
 // we will later warn the user if this seems to low.)
+// Note on each subsample we don't re-de-mean Y or re-standardise X, because 
+// extrapolation using the estimates we will eventually produce doesn't
+// involve de-meaning Y or restandardising X. In practice this matters little.
 real colvector findLambda(real colvector cov_xy, 
 						  real scalar alpha, real scalar numlambda,
 						  real scalar epsilon, real scalar tol)
