@@ -2,8 +2,8 @@
 program define elasticreg, eclass byable(recall)
 	version 15
 
-syntax varlist(min=3 numeric) [if] [in] [aweight], alpha(real) [ ///
-	lambda(real -1) numlambda(integer 100) lambdamin lambda1se   ///
+syntax varlist(min=3 numeric fv) [if] [in] [aweight], alpha(real) [ ///
+	lambda(real -1) numlambda(integer 100) lambdamin lambda1se      ///
 	numfolds(integer 10) epsilon(real 0.001) tol(real 0.001) ] 
 
 /*
@@ -28,6 +28,31 @@ marksample touse
 local depvar : word 1 of `varlist'
 local indvars = substr("`varlist'",length("`depvar'")+1,length("`varlist'"))
 
+* Expand factor variables, if they are specified.
+if "`s(fvops)'" == "true" {
+	* xx assert no factor variables for y
+	* List factor variables and create temporary variables.
+	fvexpand `indvars' if `touse'
+	local indvars_uncoded_withbase  `r(varlist)'
+	fvrevar `indvars_uncoded_withbase'
+	local indvars_coded_withbase    `r(varlist)'
+	* Exclude base levels from that list (you'd think there was a simpler way to
+	* do this).
+	local numvars = wordcount("`indvars_uncoded_withbase'")
+	forvalues j = 1/`numvars' {
+		local var_coded   = word("`indvars_coded_withbase'",  `j')
+		local var_uncoded = word("`indvars_uncoded_withbase'",`j')
+		if !strmatch("`var_uncoded'", "*b.*") {
+			local indvars_coded   `indvars_coded'   `var_coded'
+			local indvars_uncoded `indvars_uncoded' `var_uncoded'		
+		}
+	}
+}
+* Otherwise just transfer the independent variables into identical macros.
+else {
+	local indvars_coded   `indvars'
+	local indvars_uncoded `indvars'
+}
 
 * If a weight is not provided, set all weights equal.
 if "`weight'" == "" {
@@ -101,11 +126,11 @@ generate `weight_sum1' = `weight'/(`N' * r(mean))
 * ... and standardising the x's (storing their standard deviations and means).
 tempname mean_x
 tempname sd_x
-local K = wordcount("`indvars'")
+local K = wordcount("`indvars_coded'")
 matrix `sd_x'   = J(`K', 1, .)
 matrix `mean_x' = J(`K', 1, .)
 forvalues j = 1/`K' {
-	local xname : word `j' of `indvars'
+	local xname : word `j' of `indvars_coded'
 	quietly summarize `xname' if `touse'
 	matrix `mean_x'[`j',1] = `r(mean)'
 	matrix `sd_x'[`j',  1] = `r(sd)'
@@ -125,7 +150,7 @@ mata: notEstimation("`depvar_demeaned'", "`indvars_std'", "`weight_sum1'",      
 forvalues j = 1/`K' {
 	matrix `beta_handle'[`j',1] = `beta_handle'[`j',1] / `sd_x'[`j',1]
 	if `beta_handle'[`j',1] != 0 {
-		local xname : word `j' of `indvars'
+		local xname : word `j' of `indvars_uncoded'
 		local varlist_nonzero `varlist_nonzero' `xname'
 	}
 }
@@ -133,7 +158,7 @@ forvalues j = 1/`K' {
 matrix `beta0' = `ymean' - `beta_handle''*`mean_x'
 matrix `beta_handle' = (`beta_handle' \ `beta0')
 * Set beta rownames.
-matrix rownames `beta_handle' = `indvars' _cons
+matrix rownames `beta_handle' = `indvars_uncoded' _cons
 
 * Return the covariates of interest.
 matrix `beta_handle' = `beta_handle''
