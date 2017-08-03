@@ -226,9 +226,6 @@ void notEstimation(
 // of lambda which are equidistant in log space. (When alpha is 0, there is no
 // largest lambda and so we calculate the one corresponding to alpha = 0.001,
 // we will later warn the user if this seems to low.)
-// Note on each subsample we don't re-de-mean Y or re-standardise X, because 
-// extrapolation using the estimates we will eventually produce doesn't
-// involve de-meaning Y or restandardising X. In practice this matters little.
 real colvector findLambda(real colvector cov_xy, 
 						  real scalar alpha, real scalar numlambda,
 						  real scalar epsilon, real scalar tol)
@@ -241,6 +238,9 @@ real colvector findLambda(real colvector cov_xy,
 }
 
 // This function calculates the optimal lambda using cross-validation.
+// Note on each subsample we don't re-de-mean Y or re-standardise X, because 
+// extrapolation using the estimates we will eventually produce doesn't
+// involve de-meaning Y or restandardising X. In practice this matters little.
 real scalar crossValidateLambda(
 	real scalar numfolds, string scalar heuristic,
 	real matrix x, real colvector y, real colvector weight,
