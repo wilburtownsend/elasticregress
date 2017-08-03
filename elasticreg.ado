@@ -2,7 +2,7 @@
 program define elasticreg, eclass byable(recall)
 	version 15
 
-syntax varlist(min=3 numeric fv) [if] [in] [aweight], alpha(real) [ ///
+syntax varlist(min=2 numeric fv) [if] [in] [aweight], alpha(real) [ ///
 	lambda(real -1) numlambda(integer 100) lambdamin lambda1se      ///
 	numfolds(integer 10) epsilon(real 0.001) tol(real 0.001) ] 
 

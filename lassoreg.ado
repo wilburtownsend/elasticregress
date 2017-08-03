@@ -5,7 +5,7 @@
 program define lassoreg, eclass byable(onecall)
 	version 15
 
-syntax varlist(min=3 numeric) [if] [in] [aweight], [             ///
+syntax varlist(min=2 numeric) [if] [in] [aweight], [             ///
 	lambda(real -1) numlambda(integer 100) lambda1se lambdamin   ///
 	numfolds(integer 10) epsilon(real 0.001) tol(real 0.001) ] 	
 	
