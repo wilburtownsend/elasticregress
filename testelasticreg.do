@@ -1,3 +1,15 @@
+clear
+discard
+use "C:\Users\wilb\GitHub\elasticreg\rscfp2013.dta" 
+lassoreg income i.hhsex age i.agecl educ i.edcl i.married i.kids i.lf i.lifecl i.famstruct i.racecl i.race i.OCCAT1 i.OCCAT2 i.indcat
+39351.5691 
+
+
+stop
+
+discard
+
+
 * Set the random number seed for consistent cross-validation.
 set seed 1
 * Generate some simple data.
