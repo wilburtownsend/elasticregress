@@ -393,7 +393,7 @@ void covUpdate(
 			if (beta_old_j == 0) updateCovX(x, weight, j, cov_x)
 		 }
 		 // and if not, removing the element from the elements vector.
-		 else elements[j] = 0
+		 else elements[k] = 0
 	}
 	elements = select(elements, elements)
 }
