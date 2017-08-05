@@ -187,8 +187,6 @@ void notEstimation(
 	real scalar epsilon,  real scalar tol,
 	string scalar beta_handle, string scalar lambda_handle, string scalar r2_handle)
 {
-//
-
 	// Import data into Mata.
 	real matrix x
 	real colvector y
@@ -238,9 +236,6 @@ real colvector findLambda(real colvector cov_xy,
 }
 
 // This function calculates the optimal lambda using cross-validation.
-// Note on each subsample we don't re-de-mean Y or re-standardise X, because 
-// extrapolation using the estimates we will eventually produce doesn't
-// involve de-meaning Y or restandardising X. In practice this matters little.
 real scalar crossValidateLambda(
 	real scalar numfolds, string scalar heuristic,
 	real matrix x, real colvector y, real colvector weight,
@@ -264,15 +259,20 @@ real scalar crossValidateLambda(
 	MSE = J(numfolds, numlambda, .)
 	for (s=1; s<=numfolds; s++) {
 		// estimate beta for all lambda, excluding that subsample,
+		selectedweights = weightNorm(select(weight, cv:!=s))
 		beta = findAllBeta(
-				select(x, cv:!=s), select(y, cv:!=s), select(weight, cv:!=s), 
+				standardise(select(x, cv:!=s), selectedweights),
+				demean(select(y, cv:!=s), selectedweights), 
+				selectedweights, 
 				alpha, tol, lambda_vec, .)
 		// extrapolate beta to that subsample for all lambda and store within
 		// an N_s x numlambda matrix,
-		r = select(y, cv:==s) :- select(x, cv:==s)*beta
+		unselectedweights = weightNorm(select(weight, cv:==s))
+		r = demean(select(y, cv:==s), unselectedweights) :- 
+							standardise(select(x, cv:==s), unselectedweights)*beta
 		// and calculate the weighted MSE for each lambda.
 		for (l=1; l<=numlambda; l++) MSE[s,l] = 
-									 cross(r[,l], select(weight, cv:==s), r[,l])
+									 cross(r[,l], unselectedweights, r[,l])
 	}
 	// Then collapse MSE(k,lambda) to mean MSE(lambda) and se MSE(lambda).
 	MSEmean = mean(MSE)
@@ -323,11 +323,12 @@ real matrix findAllBeta(
 	// If estimating for a series of lambda, beta should remain at zero when
 	// calculated given lambda_max = lambda[1]. (This doesn't hold for the 
 	// limiting case alpha = 0). Each subsequent column of beta is calculated
-	// starting from the previous.
+	// starting from the previous. (Note that beta(lambda_max) can be non-zero
+	// in cross-validation samples because lambda_max takes into account the
+	// total sample cov_xy, not the subsample cov_xy. However given that 
+	// beta(lambda_max) will be zero in the full sample, for the sake of cross-
+	// validation it makes sense to leave to at zero in that case too.)
 	if (numlambda > 1) {
-		if (alpha > 0.001) assert(findBeta(x, weight, J(K,1,0), lambda[1],
-												alpha, tol, cov_x, cov_xy, wx2) 
-										== J(K,1,0))
 		for (l=2; l<=numlambda; l++) {
 					beta[,l] = findBeta(x, weight, beta[,l-1], lambda[l],
 												alpha, tol, cov_x, cov_xy, wx2)
@@ -406,6 +407,26 @@ real scalar softThreshold(real scalar z, real scalar gamma)
 	else                             return(0)
 }
 
+// This produces a de-meaned vector.
+real colvector demean(real colvector vec, real colvector w)
+{
+	return(vec :- vec'*weightNorm(w))
+}
+
+// This standardises a matrix of variables.
+real matrix standardise(real matrix x, real colvector w)
+{	
+	xmean = x'*weightNorm(w)
+	xsd   = J(cols(x),1,.)
+	for (k=1;k<=cols(x);k++) xsd[k,1] = sqrt(((x[,k] :- xmean[k]):^2)'*weightNorm(w))
+	return((x :- xmean'):/xsd')
+}
+
+// This renormalises weights so that they sum to 1.
+real colvector weightNorm(real colvector w)
+{	
+	return(w:/sum(w))
+}
 
 // This function adds to the covariance matrix of covariates when beta[j] has 
 // been made non-zero.
