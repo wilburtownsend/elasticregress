@@ -135,9 +135,9 @@ forvalues j = 1/`K' {
 	quietly summarize `xname' if `touse'
 	matrix `mean_x'[`j',1] = `r(mean)'
 	matrix `sd_x'[`j',  1] = `r(sd)'
-	tempname `xname'_std
-	quietly generate ``xname'_std' = (`xname' - `r(mean)')/`r(sd)'
-	local indvars_std `indvars_std' ``xname'_std'
+	tempname x_std
+	quietly generate `x_std' = (`xname' - `r(mean)')/`r(sd)'
+	local indvars_std `indvars_std' `x_std'
 }
 
 * Estimate the regression within Mata, storing outputs in temporary matrices.
