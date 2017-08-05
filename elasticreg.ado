@@ -30,7 +30,8 @@ local indvars = substr("`varlist'",length("`depvar'")+1,length("`varlist'"))
 
 * Expand factor variables, if they are specified.
 if "`s(fvops)'" == "true" {
-	* xx assert no factor variables for y
+	* Assert no factor variables for y.
+	_fv_check_depvar `depvar'
 	* List factor variables and create temporary variables.
 	fvexpand `indvars' if `touse'
 	local indvars_uncoded_withbase  `r(varlist)'
