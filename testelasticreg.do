@@ -1,19 +1,14 @@
-clear
-discard
-use "C:\Users\wilb\GitHub\elasticreg\rscfp2013.dta" 
-lassoreg income i.hhsex age i.agecl educ i.edcl i.married i.kids i.lf i.lifecl i.famstruct i.racecl i.race i.OCCAT1 i.OCCAT2 i.indcat
-39351.5691 
 
 
-stop
-
-discard
-
-
-* Set the random number seed for consistent cross-validation.
 set seed 1
-* Generate some simple data.
 clear
+discard
+
+/*
+use "C:\Users\wilb\GitHub\elasticreg\rscfp2013.dta" 
+lassoreg income hhsex age educ married kids lf lifecl race 
+*/
+
 set obs 100000
 gen     x1 = rnormal(0,2) > 1
 gen x2 = rnormal(4,1)
@@ -27,7 +22,5 @@ lassoreg y x*
 ridgereg y x*
 * Calculate a ridge-regression model, testing smaller lambda.
 ridgereg y x*, epsilon(0.00001)
-* Calculate OLS -- equivalent to lasso or ridge with lambda=0.
+* Calculate OLS  equivalent to lasso or ridge with lambda=0.
 lassoreg y x*, lambda(0)
-
-replace x1 = 2 if rnormal(0,2) > 1
