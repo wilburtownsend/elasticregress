@@ -1,6 +1,6 @@
 *! version 0.1
 program define elasticreg, eclass byable(recall)
-	version 15
+	version 14
 
 syntax varlist(min=2 numeric fv) [if] [in] [aweight], alpha(real) [ ///
 	lambda(real -1) numlambda(integer 100) lambdamin lambda1se      ///
@@ -58,7 +58,7 @@ else {
 * If a weight is not provided, set all weights equal.
 if "`weight'" == "" {
 	tempvar weight
-	generate `weight' = 1
+	quietly generate `weight' = 1
 }
 
 * Count observations.
@@ -119,11 +119,11 @@ if !inrange(`numfolds', 2, `N') {
 tempvar depvar_demeaned 
 summarize `depvar' if `touse', meanonly
 local ymean = r(mean)
-generate `depvar_demeaned' = `depvar' - r(mean)
+quietly generate `depvar_demeaned' = `depvar' - r(mean)
 * ... making the weights sum to 1,
 tempvar weight_sum1
 summarize `weight' if `touse', meanonly
-generate `weight_sum1' = `weight'/(`N' * r(mean))
+quietly generate `weight_sum1' = `weight'/(`N' * r(mean))
 * ... and standardising the x's (storing their standard deviations and means).
 tempname mean_x
 tempname sd_x
@@ -136,13 +136,13 @@ forvalues j = 1/`K' {
 	matrix `mean_x'[`j',1] = `r(mean)'
 	matrix `sd_x'[`j',  1] = `r(sd)'
 	tempname `xname'_std
-	generate ``xname'_std' = (`xname' - `r(mean)')/`r(sd)'
+	quietly generate ``xname'_std' = (`xname' - `r(mean)')/`r(sd)'
 	local indvars_std `indvars_std' ``xname'_std'
 }
 
 * Estimate the regression within Mata, storing outputs in temporary matrices.
 tempname beta_handle lambda_handle r2_handle beta0
-mata: notEstimation("`depvar_demeaned'", "`indvars_std'", "`weight_sum1'",      ///
+mata: notEstimation("`depvar_demeaned'", "`indvars_std'", "`weight_sum1'", "`touse'",     ///
 					`alpha', `numfolds', `numlambda', `lambda',	"`heuristic'",  ///
 					`epsilon', `tol',					                        ///
 					"`beta_handle'", "`lambda_handle'", "`r2_handle'")
@@ -176,13 +176,13 @@ end
 
 
 
-version 15
+version 14
 mata:
 
 // This function load our data into Mata and calls our estimation subroutine. It
 // then stores result matrices available to Stata.
 void notEstimation(
-	string scalar y_var, string scalar x_varlist, string scalar weight_var,
+	string scalar y_var, string scalar x_varlist, string scalar weight_var, string scalar touse_var,
 	real scalar alpha, real scalar numfolds, real scalar numlambda, 
 	real scalar lambda, string scalar heuristic,
 	real scalar epsilon,  real scalar tol,
@@ -192,9 +192,9 @@ void notEstimation(
 	real matrix x
 	real colvector y
 	real colvector weight
-	st_view(y,      ., y_var)     
-	st_view(x,      ., x_varlist) 
-	st_view(weight, ., weight_var) 
+	st_view(y,      ., y_var,      touse_var)     
+	st_view(x,      ., x_varlist,  touse_var) 
+	st_view(weight, ., weight_var, touse_var) 
 	// Calculate the full sample weighted covariance between each independent 
 	// variable and the dependent variable. (This is used both when calculating
 	// the series of lambda and, after cross-validation, when estimating the

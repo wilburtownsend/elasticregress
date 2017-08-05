@@ -3,7 +3,7 @@
 * This command calculates the ridge regression estimator of a linear regression.
 * It is a wrapper for elasticreg.
 program define ridgereg, eclass byable(onecall)
-	version 15
+	version 14
 
 syntax varlist(min=2 numeric fv) [if] [in] [aweight], [             ///
 	lambda(real -1) numlambda(integer 100) lambda1se lambdamin   ///

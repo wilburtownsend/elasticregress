@@ -24,3 +24,10 @@ ridgereg y x*
 ridgereg y x*, epsilon(0.00001)
 * Calculate OLS  equivalent to lasso or ridge with lambda=0.
 lassoreg y x*, lambda(0)
+
+
+* Allow for missing data.
+replace y  = . if rnormal(0,1) > 2
+replace x1 = . if rnormal(0,2) > 3
+* Calculate OLS  equivalent to lasso or ridge with lambda=0.
+lassoreg y x*, lambda(0)
