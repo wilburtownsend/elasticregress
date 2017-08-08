@@ -134,14 +134,16 @@ forvalues j = 1/`K' {
 	local xname : word `j' of `indvars_coded'
 	quietly summarize `xname' if `touse'
 	matrix `mean_x'[`j',1] = `r(mean)'
-	matrix `sd_x'[`j',  1] = `r(sd)'
+	local sd_unless0 = cond(`r(sd)'==0, 1, `r(sd)')
+	matrix `sd_x'[`j',  1] = `sd_unless0'
 	tempname x_std
-	quietly generate `x_std' = (`xname' - `r(mean)')/`r(sd)'
+	quietly generate `x_std' = (`xname' - `r(mean)')/`sd_unless0'
 	local indvars_std `indvars_std' `x_std'
 }
 
 * Estimate the regression within Mata, storing outputs in temporary matrices.
 tempname beta_handle lambda_handle r2_handle beta0
+local todisp: word 32 of `indvars_uncoded'
 mata: notEstimation("`depvar_demeaned'", "`indvars_std'", "`weight_sum1'", "`touse'",     ///
 					`alpha', `numfolds', `numlambda', `lambda',	"`heuristic'",  ///
 					`epsilon', `tol',					                        ///
@@ -194,7 +196,7 @@ void notEstimation(
 	real colvector weight
 	st_view(y,      ., y_var,      touse_var)     
 	st_view(x,      ., x_varlist,  touse_var) 
-	st_view(weight, ., weight_var, touse_var) 
+	st_view(weight, ., weight_var, touse_var) 	
 	// Calculate the full sample weighted covariance between each independent 
 	// variable and the dependent variable. (This is used both when calculating
 	// the series of lambda and, after cross-validation, when estimating the
@@ -387,7 +389,11 @@ void covUpdate(
 		// determining if the element changes,
 		beta_old_j = beta[j]
 		z = cov_xy[j] - cov_x[j,]*beta + beta_old_j
-		beta_new_j = softThreshold(z, lambda*alpha) / (wx2[j] + lambda*(1-alpha))
+		if (wx2[j] == 0) beta_new_j = 0
+		else beta_new_j = softThreshold(z, lambda*alpha) / (wx2[j] + lambda*(1-alpha))
+		if (beta_new_j == .) ///
+			_error("Beta became missing. Please report this bug to " +
+									  "https://github.com/wilbur-t/elasticreg.")
 		// if so, updating the beta vector and adding the corresponding
 		// covariate to the cov_x matrix,
 		 if (beta_old_j != beta_new_j) {
@@ -414,12 +420,13 @@ real colvector demean(real colvector vec, real colvector w)
 	return(vec :- vec'*weightNorm(w))
 }
 
-// This standardises a matrix of variables.
+// This standardises a matrix of variables (constant variables are left unstandardised).
 real matrix standardise(real matrix x, real colvector w)
 {	
 	xmean = x'*weightNorm(w)
 	xsd   = J(cols(x),1,.)
 	for (k=1;k<=cols(x);k++) xsd[k,1] = sqrt(((x[,k] :- xmean[k]):^2)'*weightNorm(w))
+	xsd[selectindex(xsd:==0)] = J(length(selectindex(xsd:==0)), 1, 1)
 	return((x :- xmean'):/xsd')
 }
 
