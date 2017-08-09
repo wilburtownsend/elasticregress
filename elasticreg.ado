@@ -143,7 +143,6 @@ forvalues j = 1/`K' {
 
 * Estimate the regression within Mata, storing outputs in temporary matrices.
 tempname beta_handle lambda_handle r2_handle beta0
-local todisp: word 32 of `indvars_uncoded'
 mata: notEstimation("`depvar_demeaned'", "`indvars_std'", "`weight_sum1'", "`touse'",     ///
 					`alpha', `numfolds', `numlambda', `lambda',	"`heuristic'",  ///
 					`epsilon', `tol',					                        ///
@@ -286,7 +285,7 @@ real scalar crossValidateLambda(
 	minMSE = selectindex(MSEmean :== min(MSEmean))
 	if (heuristic == "min")       lambda = lambda_vec[minMSE]
 	else if (heuristic == "1se")  lambda = lambda_vec[
-					max((MSEmean :< (MSEmean+MSEse)[minMSE]) :* (1..numlambda))]
+							selectindex(MSEmean :< (MSEmean+MSEse)[minMSE])[1]]
 	else _error("Heuristic must be 'min' or '1se'.")
 	// Warn the user if the MSE-minimising lambda is the smallest lambda tested.
 	if (lambda_vec[minMSE] == lambda_vec[length(lambda_vec)]) { 
