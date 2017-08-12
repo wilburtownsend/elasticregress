@@ -179,6 +179,8 @@ Consider re-running estimation with a smaller epsilon.
 {synopt:{cmd:e(lambda)}}lambda provided or selected by cross-validation{p_end}
 {synopt:{cmd:e(r2)}}R-squared{p_end}
 {synopt:{cmd:e(alpha)}}alpha provided{p_end}
+{synopt:{cmd:e(cvmse_minimal)}}minimal cross-validation mean squared error{p_end}
+{synopt:{cmd:e(cvmse_actual)}}cross-validation mean squared error for selected lambda (only differs from cvmse_minimal if option lambda1se is used){p_end}
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Macros}{p_end}

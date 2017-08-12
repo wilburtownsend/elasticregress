@@ -142,11 +142,12 @@ forvalues j = 1/`K' {
 }
 
 * Estimate the regression within Mata, storing outputs in temporary matrices.
-tempname beta_handle lambda_handle r2_handle beta0
+tempname beta_handle lambda_handle r2_handle cvmse_minimal_handle cvmse_actual_handle beta0
 mata: notEstimation("`depvar_demeaned'", "`indvars_std'", "`weight_sum1'", "`touse'",     ///
 					`alpha', `numfolds', `numlambda', `lambda',	"`heuristic'",  ///
 					`epsilon', `tol',					                        ///
-					"`beta_handle'", "`lambda_handle'", "`r2_handle'")
+					"`beta_handle'", "`lambda_handle'", "`r2_handle'",          ///
+					"`cvmse_minimal_handle'", "`cvmse_actual_handle'")
 * Replace the estimated beta with one corresponding to the unstandardised
 * variables and note the list of the non-zero covariates.
 forvalues j = 1/`K' {
@@ -168,6 +169,8 @@ ereturn post `beta_handle' , depname(`depvar') obs(`N') esample(`touse')
 ereturn scalar lambda = `lambda_handle'
 ereturn scalar r2     = `r2_handle'
 ereturn scalar alpha  = `alpha'
+ereturn scalar cvmse_minimal  = `cvmse_minimal_handle'
+ereturn scalar cvmse_actual   = `cvmse_actual_handle'
 ereturn local varlist_nonzero `varlist_nonzero'
 ereturn local cmd "elasticreg" 
 ereturn display
@@ -187,7 +190,9 @@ void notEstimation(
 	real scalar alpha, real scalar numfolds, real scalar numlambda, 
 	real scalar lambda, string scalar heuristic,
 	real scalar epsilon,  real scalar tol,
-	string scalar beta_handle, string scalar lambda_handle, string scalar r2_handle)
+	string scalar beta_handle, string scalar lambda_handle, string scalar r2_handle,
+	string scalar cvmse_minimal_handle, string scalar cvmse_actual_handle	
+	)
 {
 	// Import data into Mata.
 	real matrix x
@@ -206,17 +211,24 @@ void notEstimation(
 	if (lambda==-1) lambda_vec = findLambda(cov_xy, alpha, numlambda, epsilon, tol)
 	else            lambda_vec = (lambda)
 	// If lambda is not provided, select the MSE-minimising lambda using 
-	// cross-validation.
+	// cross-validation. (CVMSE is a vector altered by crossValidateLambda to
+	// include the minimal cross-validation mean error and the cross-validation
+	// mean error corresponding to the selected lambda.
+	CVMSE = (.\.)
 	if (lambda==-1) lambda = crossValidateLambda(numfolds, heuristic, 
-		x, y, weight, alpha, tol, lambda_vec)
+		x, y, weight, alpha, tol, lambda_vec,
+		CVMSE)
 	// Estimate the beta on the full data, given the lambda selected.
 	beta = findAllBeta(x, y, weight, alpha, tol, lambda, cov_xy)	
 	// Calculate the weighted r2.
 	r2  = 1 - norm(y - x*beta)^2/norm(y)^2
-	// Store lambda, beta.
+	// Store lambda, beta, the minimal cross-validation MSE and the selected
+	// cross-validation MSE.
 	st_matrix(beta_handle, beta) 
 	st_numscalar(lambda_handle, lambda) 
 	st_numscalar(r2_handle, r2) 
+	st_numscalar(cvmse_minimal_handle, CVMSE[1]) 
+	st_numscalar(cvmse_actual_handle,  CVMSE[2]) 
 	
 }
 
@@ -241,7 +253,8 @@ real colvector findLambda(real colvector cov_xy,
 real scalar crossValidateLambda(
 	real scalar numfolds, string scalar heuristic,
 	real matrix x, real colvector y, real colvector weight,
-	real scalar alpha, real scalar tol, real colvector lambda_vec)
+	real scalar alpha, real scalar tol, real colvector lambda_vec,
+	real colvector CVMSE)
 {
 	N = length(y)
 	numlambda = length(lambda_vec)
@@ -299,6 +312,11 @@ real scalar crossValidateLambda(
 		display("elasticreg includes a very large λ for ridge regression but")
 		display("here it appears that this λ constraint is binding.")
 	}
+	// Return the lambda selected and (implicitly) a vector composed of the
+	// minimal cross-validation mean error and the cross-validation mean error
+	// corresponding to the selected lambda -- these only differ if heuristic
+	// == "1se".
+	CVMSE = (MSEmean[minMSE] \ MSEmean[selectindex(lambda :== lambda_vec)])
 	return(lambda)
 }
 
