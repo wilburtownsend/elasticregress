@@ -425,7 +425,8 @@ real matrix standardise(real matrix x, real colvector w)
 	xmean = x'*weightNorm(w)
 	xsd   = J(cols(x),1,.)
 	for (k=1;k<=cols(x);k++) xsd[k,1] = sqrt(((x[,k] :- xmean[k]):^2)'*weightNorm(w))
-	xsd[selectindex(xsd:==0)] = J(length(selectindex(xsd:==0)), 1, 1)
+	if (sum((xsd:==0)) > 0) ///
+			   xsd[selectindex(xsd:==0)] = J(length(selectindex(xsd:==0)), 1, 1)
 	return((x :- xmean'):/xsd')
 }
 
