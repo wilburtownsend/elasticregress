@@ -171,10 +171,32 @@ ereturn scalar r2     = `r2_handle'
 ereturn scalar alpha  = `alpha'
 ereturn scalar cvmse_minimal  = `cvmse_minimal_handle'
 ereturn scalar cvmse_actual   = `cvmse_actual_handle'
+if `lambda' != -1 ereturn scalar numfolds       = .
+else              ereturn scalar numfolds       = `numfolds'
+if `lambda' != -1 ereturn scalar numlambda      = .
+else              ereturn scalar numlambda      = `numlambda'
 ereturn local varlist_nonzero `varlist_nonzero'
 ereturn local cmd "elasticreg" 
-ereturn display
-	
+
+* Display the results.
+if      `alpha' == 1 local title LASSO regression
+else if `alpha' == 0 local title Ridge regression
+else                 local title Elastic-net regression
+display _newline as text "`title'" _continue
+local textpreface _col(40) as text 
+local intpreface  _col(67) "= " as res %10.0fc 
+local realpreface _col(67) "= " as res %10.4f 
+display `textpreface' "Number of observations" `intpreface'  e(N)
+display `textpreface' "R-squared"              `realpreface' e(r2)
+display `textpreface' "lambda"                 `realpreface' e(lambda)
+display `textpreface' "alpha"                  `realpreface' e(alpha)
+if `lambda' == -1 {
+  display `textpreface' "Cross-validation MSE"    `realpreface' e(cvmse_actual)
+  display `textpreface' "Number of folds"         `intpreface'  e(numfolds)
+  display `textpreface' "Number of lambda tested" `intpreface'  e(numlambda)
+}
+_coef_table
+
 end
 
 

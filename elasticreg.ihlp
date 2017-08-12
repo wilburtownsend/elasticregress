@@ -181,6 +181,8 @@ Consider re-running estimation with a smaller epsilon.
 {synopt:{cmd:e(alpha)}}alpha provided{p_end}
 {synopt:{cmd:e(cvmse_minimal)}}minimal cross-validation mean squared error{p_end}
 {synopt:{cmd:e(cvmse_actual)}}cross-validation mean squared error for selected lambda (only differs from cvmse_minimal if option lambda1se is used){p_end}
+{synopt:{cmd:e(numfolds)}}number of folds used in cross-validation{p_end}
+{synopt:{cmd:e(numfolds)}}number of lambda tested in cross-validation{p_end}
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Macros}{p_end}
@@ -195,7 +197,7 @@ Consider re-running estimation with a smaller epsilon.
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Functions}{p_end}
-{synopt:{cmd:e(sample)}}marks estimation sample{p_end}
+{synopt:{cmd:e(sample)}}mark estimation sample{p_end}
 {p2colreset}{...}
 
 
