@@ -5,7 +5,8 @@ program define elasticreg, eclass byable(recall)
 syntax varlist(min=2 numeric fv) [if] [in] [aweight], [             ///
 	alpha(real -1)  numalpha(integer 6)                             ///
 	lambda(real -1) numlambda(integer 100) lambdamin lambda1se      ///
-	numfolds(integer 10) epsilon(real 0.001) tol(real 0.001) ] 
+	numfolds(integer 10) epsilon(real 0.001)                        ///
+	tol(real 0.001) collinear] 
 
 /*
   alpha is the weight placed on the L1 (LASSO) constraint and (1-alpha) is the 
@@ -26,38 +27,24 @@ syntax varlist(min=2 numeric fv) [if] [in] [aweight], [             ///
   epsilon is ratio of the smallest lambda tested to the largest. Its default is
 	0.001. The user will receive a warning if epsilon seems to be binding.
   tol is the tolerance used when optimising beta.
+  If collinear, the program is estimated including collinear variables.
 */
 marksample touse
 
+* Seperate the dependant variable and the independant variable, and assert that
+* the dependant variable isn't a factor variable.
 local depvar : word 1 of `varlist'
 local indvars = substr("`varlist'",length("`depvar'")+1,length("`varlist'"))
+_fv_check_depvar `depvar'
 
-* Expand factor variables, if they are specified.
-if "`s(fvops)'" == "true" {
-	* Assert no factor variables for y.
-	_fv_check_depvar `depvar'
-	* List factor variables and create temporary variables.
-	fvexpand `indvars' if `touse'
-	local indvars_uncoded_withbase  `r(varlist)'
-	fvrevar `indvars_uncoded_withbase'
-	local indvars_coded_withbase    `r(varlist)'
-	* Exclude base levels from that list (you'd think there was a simpler way to
-	* do this).
-	local numvars = wordcount("`indvars_uncoded_withbase'")
-	forvalues j = 1/`numvars' {
-		local var_coded   = word("`indvars_coded_withbase'",  `j')
-		local var_uncoded = word("`indvars_uncoded_withbase'",`j')
-		if !strmatch("`var_uncoded'", "*b.*") {
-			local indvars_coded   `indvars_coded'   `var_coded'
-			local indvars_uncoded `indvars_uncoded' `var_uncoded'		
-		}
-	}
-}
-* Otherwise just transfer the independent variables into identical macros.
-else {
-	local indvars_coded   `indvars'
-	local indvars_uncoded `indvars'
-}
+* Expand factor variables if they are specified, and remove collinear variables
+* unless the user has decided not to.
+if "`collinear'" == "collinear"  fvexpand `indvars' if `touse'
+else                             _rmcoll  `indvars' if `touse', expand
+local indvars_uncoded  `r(varlist)'
+* Create temporary variables for collinear and factor variables.
+fvrevar `indvars_uncoded'
+local indvars_coded    `r(varlist)'
 
 * If a weight is not provided, set all weights equal.
 if "`weight'" == "" {
