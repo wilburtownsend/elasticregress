@@ -1,14 +1,18 @@
-*! version 0.1
+*! version 0.2
 program define elasticreg, eclass byable(recall)
 	version 14
 
-syntax varlist(min=2 numeric fv) [if] [in] [aweight], alpha(real) [ ///
+syntax varlist(min=2 numeric fv) [if] [in] [aweight], [             ///
+	alpha(real -1)  numalpha(integer 6)                             ///
 	lambda(real -1) numlambda(integer 100) lambdamin lambda1se      ///
 	numfolds(integer 10) epsilon(real 0.001) tol(real 0.001) ] 
 
 /*
   alpha is the weight placed on the L1 (LASSO) constraint and (1-alpha) is the 
-	weight placed on the L2 (ridgereg) constraint.
+	weight placed on the L2 (ridgereg) constraint. if alpha is -1 (the
+	default) it is found by cross-validation.
+  numalpha is the number of alpha for which beta is calculated when alpha is
+	being found via cross-validation.
   lambda is the penalty for placed on larger coefficients. if lambda is -1 (the
 	default) it is found by cross-validation.
   numlambda is the number of lambda for which beta is calculated when lambda is
@@ -66,7 +70,7 @@ summarize `touse', meanonly
 local N = _N*`r(mean)'
 
 * Assert that alpha is in [0,1].
-if (`alpha' < 0) | (`alpha' > 1) {
+if ((`alpha' < 0) | (`alpha' > 1)) & (`alpha' != -1) {
 	display as error `"alpha must be between 0 and 1."'
 	exit
 }
@@ -90,6 +94,12 @@ if (`lambda' < 0 & `lambda' != -1) {
 * Assert that numlambda is > 1 when lambda is not provided.
 if (`numlambda' < 2 & `lambda' == -1) {
 	display as error `"numlambda must be greater than 1."'
+	exit
+}
+
+* Assert that numalpha is > 1 when alpha is not provided.
+if (`numalpha' < 2 & `alpha' == -1) {
+	display as error `"numalpha must be greater than 1."'
 	exit
 }
 
@@ -142,12 +152,14 @@ forvalues j = 1/`K' {
 }
 
 * Estimate the regression within Mata, storing outputs in temporary matrices.
-tempname beta_handle lambda_handle r2_handle cvmse_minimal_handle cvmse_actual_handle beta0
-mata: notEstimation("`depvar_demeaned'", "`indvars_std'", "`weight_sum1'", "`touse'",     ///
-					`alpha', `numfolds', `numlambda', `lambda',	"`heuristic'",  ///
-					`epsilon', `tol',					                        ///
-					"`beta_handle'", "`lambda_handle'", "`r2_handle'",          ///
-					"`cvmse_minimal_handle'", "`cvmse_actual_handle'")
+tempname beta_handle lambda_handle alpha_handle r2_handle ///
+	     cvmse_minimal_handle cvmse_actual_handle beta0
+mata: notEstimation(                                                        ///
+	"`depvar_demeaned'", "`indvars_std'", "`weight_sum1'", "`touse'",       ///
+	`numfolds', `alpha', `numalpha', `lambda', `numlambda', "`heuristic'",  ///
+	`epsilon', `tol',					                                    ///
+	"`beta_handle'", "`lambda_handle'", "`alpha_handle'",                   ///
+	"`r2_handle'", "`cvmse_minimal_handle'", "`cvmse_actual_handle'")
 * Replace the estimated beta with one corresponding to the unstandardised
 * variables and note the list of the non-zero covariates.
 forvalues j = 1/`K' {
@@ -167,14 +179,16 @@ matrix rownames `beta_handle' = `indvars_uncoded' _cons
 matrix `beta_handle' = `beta_handle''
 ereturn post `beta_handle' , depname(`depvar') obs(`N') esample(`touse')
 ereturn scalar lambda = `lambda_handle'
+ereturn scalar alpha  = `alpha_handle'
 ereturn scalar r2     = `r2_handle'
-ereturn scalar alpha  = `alpha'
 ereturn scalar cvmse_minimal  = `cvmse_minimal_handle'
 ereturn scalar cvmse_actual   = `cvmse_actual_handle'
-if `lambda' != -1 ereturn scalar numfolds       = .
-else              ereturn scalar numfolds       = `numfolds'
+if (`lambda' != -1 & `alpha' != -1) ereturn scalar numfolds       = .
+else                                ereturn scalar numfolds       = `numfolds'
 if `lambda' != -1 ereturn scalar numlambda      = .
 else              ereturn scalar numlambda      = `numlambda'
+if `alpha' != -1  ereturn scalar numalpha      = .
+else              ereturn scalar numalpha      = `numalpha'
 ereturn local varlist_nonzero `varlist_nonzero'
 ereturn local cmd "elasticreg" 
 
@@ -188,13 +202,14 @@ local intpreface  _col(67) "= " as res %10.0fc
 local realpreface _col(67) "= " as res %10.4f 
 display `textpreface' "Number of observations" `intpreface'  e(N)
 display `textpreface' "R-squared"              `realpreface' e(r2)
-display `textpreface' "lambda"                 `realpreface' e(lambda)
 display `textpreface' "alpha"                  `realpreface' e(alpha)
-if `lambda' == -1 {
+display `textpreface' "lambda"                 `realpreface' e(lambda)
+if (`lambda' == -1 | `alpha' == -1 )  {
   display `textpreface' "Cross-validation MSE"    `realpreface' e(cvmse_actual)
   display `textpreface' "Number of folds"         `intpreface'  e(numfolds)
-  display `textpreface' "Number of lambda tested" `intpreface'  e(numlambda)
 }
+if (`alpha'  == -1) display `textpreface' "Number of alpha tested"  `intpreface'  e(numalpha)
+if (`lambda' == -1) display `textpreface' "Number of lambda tested" `intpreface'  e(numlambda)
 _coef_table
 
 end
@@ -208,11 +223,13 @@ mata:
 // This function load our data into Mata and calls our estimation subroutine. It
 // then stores result matrices available to Stata.
 void notEstimation(
-	string scalar y_var, string scalar x_varlist, string scalar weight_var, string scalar touse_var,
-	real scalar alpha, real scalar numfolds, real scalar numlambda, 
-	real scalar lambda, string scalar heuristic,
+	string scalar y_var, string scalar x_varlist,
+	string scalar weight_var, string scalar touse_var,
+	real scalar numfolds,
+	real scalar alpha, real scalar numalpha,
+	real scalar lambda, real scalar numlambda, string scalar heuristic,
 	real scalar epsilon,  real scalar tol,
-	string scalar beta_handle, string scalar lambda_handle, string scalar r2_handle,
+	string scalar beta_handle, string scalar lambda_handle, string scalar alpha_handle, string scalar r2_handle,
 	string scalar cvmse_minimal_handle, string scalar cvmse_actual_handle	
 	)
 {
@@ -228,31 +245,69 @@ void notEstimation(
 	// the series of lambda and, after cross-validation, when estimating the
 	// final beta, so for efficiency we calculate it only once).
 	cov_xy = cross(x, weight, y)
-	// Select the series of lambda for which we will estimate beta. If lambda
-	// is provided, this is trivial. If not, the series depends on the data.
-	if (lambda==-1) lambda_vec = findLambda(cov_xy, alpha, numlambda, epsilon, tol)
-	else            lambda_vec = (lambda)
-	// If lambda is not provided, select the MSE-minimising lambda using 
-	// cross-validation. (CVMSE is a vector altered by crossValidateLambda to
-	// include the minimal cross-validation mean error and the cross-validation
-	// mean error corresponding to the selected lambda.
-	CVMSE = (.\.)
-	if (lambda==-1) lambda = crossValidateLambda(numfolds, heuristic, 
-		x, y, weight, alpha, tol, lambda_vec,
-		CVMSE)
+	// If alpha and lambda are both provided, we select them and move on. If not
+	// we loop first over a vector of possible alphas (which will be a singleton
+	// when alpha is provided but lambda is not) and, for each alpha, calculate
+	// the optimal lambda.
+	if (lambda!=-1 & alpha!=-1) {
+		CVMSE = (.\.)
+		lambda_found = lambda
+		alpha_found  = alpha
+	}
+	else {
+		// If alpha is not provided, we loop over a series of alpha. Otherwise
+		// this loop is trivial. Across each interation we store CVMSE[1,2] and
+		// lambda_found.
+		if (alpha == -1) alpha_vec = rangen(0, 1, numalpha)
+		else             alpha_vec = (alpha)
+		lambda_found_vec = J(length(alpha_vec), 1, .)
+		CVMSE_vec        = J(length(alpha_vec), 2, .)
+		// To ensure cross-validation samples are consistent we reset the seed
+		// in each loop. To ensure that we get varying estimates when the seed
+		// has not been set by the user, the value we seed to is random.
+		seed = rdiscrete(1,1,J(10000,1,0.0001))
+		for (alphaindex=1; alphaindex<=length(alpha_vec); alphaindex++) {
+			thisalpha = alpha_vec[alphaindex]
+			rseed(seed)
+			// Select the series of lambda for which we will estimate beta. If
+			// lambda is provided, this is trivial. If not, the series depends
+			// on the data.
+			if (lambda==-1) lambda_vec = findLambda(cov_xy, thisalpha, numlambda, epsilon, tol)
+			else            lambda_vec = (lambda)
+			// We now run a function which finds the MSE-minimising lambda using 
+			// cross-validation. (CVMSE is a vector which crossValidateLambda 
+			// alters to include the minimal cross-validation mean error and the
+			// cross-validation mean error corresponding to the selected lambda.)
+			// If lambda is provided but alpha isn't, this function is still
+			// useful because it provides the CVMSE. In practice it'd be pretty
+			// weird to provide lambda but not alpha.
+			thisCVMSE = (.\.)
+			lambda_found_vec[alphaindex] = crossValidateLambda(
+				  numfolds, heuristic, x, y, weight, thisalpha, tol, lambda_vec,
+				  thisCVMSE)
+			CVMSE_vec[alphaindex, ] = thisCVMSE'
+		}
+		// We select alpha on the basis of CVMSE[1, ], regardless of heuristic.
+		minMSEindex  = selectindex(CVMSE_vec[,1] :== min(CVMSE_vec[,1]))
+		alpha_found  = alpha_vec[       minMSEindex]
+		lambda_found = lambda_found_vec[minMSEindex]
+		CVMSE        = CVMSE_vec[       minMSEindex, ]'
+	}
 	// Estimate the beta on the full data, given the lambda selected.
-	beta = findAllBeta(x, y, weight, alpha, tol, lambda, cov_xy)	
+	beta = findAllBeta(x, y, weight, alpha_found, tol, lambda_found, cov_xy)	
 	// Calculate the weighted r2.
 	r2  = 1 - norm(y - x*beta)^2/norm(y)^2
 	// Store lambda, beta, the minimal cross-validation MSE and the selected
 	// cross-validation MSE.
 	st_matrix(beta_handle, beta) 
-	st_numscalar(lambda_handle, lambda) 
+	st_numscalar(lambda_handle, lambda_found) 
+	st_numscalar(alpha_handle, alpha_found) 
 	st_numscalar(r2_handle, r2) 
 	st_numscalar(cvmse_minimal_handle, CVMSE[1]) 
 	st_numscalar(cvmse_actual_handle,  CVMSE[2]) 
 	
 }
+
 
 // This function calculates the series of lambda for which our model will be
 // estimated when no lambda has been provided. It calculates the largest lambda
@@ -523,6 +578,7 @@ void matlist(
     printf((2+rw+1)*" " + "{c BLC}{hline " +
         strofreal((wd+1)*cols(X)+1) + "}{c BRC}\n")
 }
+
 
 
 end

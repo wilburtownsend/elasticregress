@@ -22,7 +22,7 @@
 {marker syntax}{...}
 {title:Syntax}
 
-{p 8 17 2}{opt elasticreg} {depvar} [{indepvars}] {ifin} {weight} {cmd:,} alpha(#) [{it:options}]
+{p 8 17 2}{opt elasticreg} {depvar} [{indepvars}] {ifin} {weight} [{cmd:,} alpha(#) {it:options}]
 
 {p 8 17 2}{opt lassoreg}   {depvar} [{indepvars}] {ifin} {weight} [{cmd:,} {it:options}]
 
@@ -32,14 +32,17 @@
 {synopthdr}
 {synoptline}
 {syntab:Main}
-{synopt:{opt alpha}}weight placed on the LASSO (L1) norm, one minus weight placed on the ridge (L2) norm;{p_end}
-{synopt:{opt lambda}}penalty placed on larger coefficients — by default found by cross-validation.{p_end}
+{synopt:{opt alpha}}weight placed on the LASSO (L1) norm, one minus weight placed on the ridge (L2) norm — by default found by cross-validation;{p_end}
+{synopt:{opt lambda}}penalty placed on larger coefficients — by default found by cross-validation; {p_end}
+{synopt:{opt numfolds}}number of folds used when cross-validating lambda or alpha — default is 10. {p_end}
+{synoptline}
+{syntab:Options which only matter when alpha is found through cross-validation}
+{synopt:{opt numalpha}}number of alpha tested when alpha is found by cross-validation.{p_end}
 {synoptline}
 {syntab:Options which only matter when lambda is found through cross-validation}
 {synopt:{opt numlambda}}number of lambda tested when lambda is found by cross-validation;{p_end}
 {synopt:{opt lambdamin}}lambda selected is that which minimises cross-validation MSE (default); {p_end}
 {synopt:{opt lambda1se}}lambda selected is largest within a standard error of that selected under lambdamin; {p_end}
-{synopt:{opt numfolds}}number of folds used when cross-validating lambda — default is 10; {p_end}
 {synopt:{opt epsilon}}ratio of the smallest lambda tested to the largest — default is 0.001, the user is prompted when this constraint is binding. {p_end}
 {synoptline}
 {syntab:Technical options which you can hopefully ignore}
@@ -93,6 +96,14 @@ to be binding (it often is when alpha is small and thus the maximal lambda
 is very large).
 
 {pstd}
+elasticreg extends the Friedman, Hastie and Tibshirani (2008) by allowing
+the elastic-net mixing parameter alpha to be also found using cross-validation.
+Consistent cross-validation samples are estimated for a series of alpha, and the
+alpha selected is that which minimises CV-MSE(alpha, lambda_min(alpha)), where
+CV-MSE() is the mean error in the cross validation samples and lambda_min(alpha)
+is the lambda which minimises cross-validation mean squared error given alpha.
+
+{pstd}
 To submit bugs or request additional features, please post an issue on the
 {browse "http://github.com/wilbur-t/elasticreg/issues/":project Github}.
 
@@ -100,6 +111,7 @@ To submit bugs or request additional features, please post an issue on the
 {marker examples}{...}
 {title:Example}
 
+(Note that these examples are slightly out of date.)
 
 {com}. * Set the random number seed for consistent cross-validation.
 . set seed 1
@@ -176,13 +188,14 @@ Consider re-running estimation with a smaller epsilon.
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Scalars}{p_end}
 {synopt:{cmd:e(N)}}number of observations{p_end}
+{synopt:{cmd:e(alpha)}}alpha provided or selected by cross-validation{p_end}
 {synopt:{cmd:e(lambda)}}lambda provided or selected by cross-validation{p_end}
 {synopt:{cmd:e(r2)}}R-squared{p_end}
-{synopt:{cmd:e(alpha)}}alpha provided{p_end}
 {synopt:{cmd:e(cvmse_minimal)}}minimal cross-validation mean squared error{p_end}
 {synopt:{cmd:e(cvmse_actual)}}cross-validation mean squared error for selected lambda (only differs from cvmse_minimal if option lambda1se is used){p_end}
 {synopt:{cmd:e(numfolds)}}number of folds used in cross-validation{p_end}
-{synopt:{cmd:e(numfolds)}}number of lambda tested in cross-validation{p_end}
+{synopt:{cmd:e(numalpha)}}number of alpha tested in cross-validation{p_end}
+{synopt:{cmd:e(numlambda)}}number of lambda tested in cross-validation{p_end}
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Macros}{p_end}
