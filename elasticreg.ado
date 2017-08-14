@@ -178,17 +178,17 @@ matrix rownames `beta_handle' = `indvars_uncoded' _cons
 * Return the covariates of interest.
 matrix `beta_handle' = `beta_handle''
 ereturn post `beta_handle' , depname(`depvar') obs(`N') esample(`touse')
-ereturn scalar lambda = `lambda_handle'
 ereturn scalar alpha  = `alpha_handle'
+ereturn scalar lambda = `lambda_handle'
 ereturn scalar r2     = `r2_handle'
 ereturn scalar cvmse_minimal  = `cvmse_minimal_handle'
 ereturn scalar cvmse_actual   = `cvmse_actual_handle'
 if (`lambda' != -1 & `alpha' != -1) ereturn scalar numfolds       = .
 else                                ereturn scalar numfolds       = `numfolds'
-if `lambda' != -1 ereturn scalar numlambda      = .
-else              ereturn scalar numlambda      = `numlambda'
 if `alpha' != -1  ereturn scalar numalpha      = .
 else              ereturn scalar numalpha      = `numalpha'
+if `lambda' != -1 ereturn scalar numlambda      = .
+else              ereturn scalar numlambda      = `numlambda'
 ereturn local varlist_nonzero `varlist_nonzero'
 ereturn local cmd "elasticreg" 
 
