@@ -429,9 +429,6 @@ real matrix findAllBeta(
 {
 	K         = cols(x)
 	numlambda = length(lambda)
-	// Calculate wx2: the K vector with kth element equal to the inner
-	// product of weight and x_k^2. 
-	wx2    = (x:^2)' * weight
 	// Store the series of beta in a K x numlamda matrix, with Kth column equal
 	// to the beta found from the Kth lambda.
 	beta = J(K, numlambda, 0)
@@ -446,13 +443,13 @@ real matrix findAllBeta(
 	if (numlambda > 1) {
 		for (l=2; l<=numlambda; l++) {
 					beta[,l] = findBeta(x, weight, beta[,l-1], lambda[l],
-												alpha, tol, cov_x, cov_xy, wx2)
+												alpha, tol, cov_x, cov_xy)
 		}
 	}
 	// Otherwise we estimate beta(lambda) starting from beta = 0. Note that this
 	// isn't necessarily efficient -- sometimes hot starts are quicker.
 	else beta = findBeta(x, weight, J(K,1,0), lambda[1],
-												alpha, tol, cov_x, cov_xy, wx2)
+												alpha, tol, cov_x, cov_xy)
 	// Return the the beta matrix. This function also implicitly edits cov_x.
 	return(beta)
 }
@@ -462,7 +459,7 @@ real matrix findAllBeta(
 real colvector findBeta(
 	real matrix x, real colvector weight, real colvector beta_start,
 	real scalar lambda, real scalar alpha, real scalar tol,
-	real matrix cov_x, real colvector cov_xy, real colvector wx2)
+	real matrix cov_x, real colvector cov_xy)
 {
 	beta          = beta_start
 	beta_previous = .
@@ -476,7 +473,7 @@ real colvector findBeta(
 		// until beta stabilises.
 		while (norm(beta:-beta_previous) > tol) {
 			beta_previous = beta
-			covUpdate(x, weight, beta, elements, lambda, alpha, cov_x, cov_xy, wx2)
+			covUpdate(x, weight, beta, elements, lambda, alpha, cov_x, cov_xy)
 		}
 		// and we only stop looping when the set of variables has stabilised.
 		if (elements == elements_previous) break
@@ -492,7 +489,7 @@ void covUpdate(
 	real matrix x, real colvector weight,
 	real colvector beta, real colvector elements,
 	real scalar lambda, real scalar alpha,
-	real matrix cov_x, real colvector cov_xy, real colvector wx2)
+	real matrix cov_x, real colvector cov_xy)
 {	// Loop over the selected elements of beta,
 	K = length(elements)
 	for (k=1; k<=K; k++) {
@@ -501,8 +498,8 @@ void covUpdate(
 		// determining if the element changes,
 		beta_old_j = beta[j]
 		z = cov_xy[j] - cov_x[j,]*beta + beta_old_j
-		if (wx2[j] == 0) beta_new_j = 0
-		else beta_new_j = softThreshold(z, lambda*alpha) / (wx2[j] + lambda*(1-alpha))
+		if (cov_xy[j] == 0) beta_new_j = 0
+		else beta_new_j = softThreshold(z, lambda*alpha) / (1 + lambda*(1-alpha))
 		if (beta_new_j == .) ///
 			_error("Beta became missing. Please report this bug to " +
 									  "https://github.com/wilbur-t/elasticreg.")
