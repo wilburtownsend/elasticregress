@@ -111,17 +111,19 @@ if !inrange(`numfolds', 2, `N') {
 }
 
 * Format the data: 
-* ... setting beta_0 equal to the dependent variable's mean and making the
-*     dependent variable mean zero,
-tempvar depvar_demeaned 
-summarize `depvar' if `touse', meanonly
-local ymean = r(mean)
-quietly generate `depvar_demeaned' = `depvar' - r(mean)
 * ... making the weights sum to 1,
 tempvar weight_sum1
 summarize `weight' if `touse', meanonly
 quietly generate `weight_sum1' = `weight'/(`N' * r(mean))
-* ... and standardising the x's (storing their standard deviations and means).
+* ... setting beta_0 equal to the dependent variable's mean and making the
+*     dependent variable mean zero,
+tempvar depvar_demeaned 
+summarize `depvar' [aweight = `weight_sum1'] if `touse', meanonly
+local ymean = r(mean)
+quietly generate `depvar_demeaned' = `depvar' - r(mean)
+* ... and standardising the x's, storing their standard deviations and means,
+*     (note that we don't uncorrect the standard deviation for the degrees of
+*      freedom so that x:^2*w = 1).
 tempname mean_x
 tempname sd_x
 local K = wordcount("`indvars_coded'")
@@ -129,9 +131,9 @@ matrix `sd_x'   = J(`K', 1, .)
 matrix `mean_x' = J(`K', 1, .)
 forvalues j = 1/`K' {
 	local xname : word `j' of `indvars_coded'
-	quietly summarize `xname' if `touse'
+	quietly summarize `xname' [aweight = `weight_sum1'] if `touse'
 	matrix `mean_x'[`j',1] = `r(mean)'
-	local sd_unless0 = cond(`r(sd)'==0, 1, `r(sd)')
+	local sd_unless0 = cond(`r(sd)'==0, 1, `r(sd)'*sqrt((`N'-1)/`N'))
 	matrix `sd_x'[`j',  1] = `sd_unless0'
 	tempname x_std
 	quietly generate `x_std' = (`xname' - `r(mean)')/`sd_unless0'
@@ -228,7 +230,7 @@ void notEstimation(
 	st_view(x,      ., x_varlist,  touse_var) 
 	st_view(weight, ., weight_var, touse_var) 	
 	K = cols(x)
-	N = length(y)
+	N = length(y)	
 	// Calculate the full sample weighted covariance between each independent 
 	// variable and the dependent variable. (This is used both when calculating
 	// the series of lambda and, after cross-validation, when estimating the
