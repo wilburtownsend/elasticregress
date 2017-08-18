@@ -287,7 +287,8 @@ void notEstimation(
 	// Estimate the beta on the full data, given the lambda selected.
 	beta = findAllBeta(x, y, weight, alpha_found, tol, lambda_found, cov_xy)	
 	// Calculate the weighted r2.
-	r2  = 1 - norm(y - x*beta)^2/norm(y)^2
+	r   = y - x*beta
+	r2  = 1 - cross(r, weight, r)/cross(y, weight, y)
 	// Store lambda, beta, the minimal cross-validation MSE and the selected
 	// cross-validation MSE.
 	st_matrix(beta_handle, beta) 
