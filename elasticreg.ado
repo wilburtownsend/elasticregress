@@ -227,6 +227,8 @@ void notEstimation(
 	st_view(y,      ., y_var,      touse_var)     
 	st_view(x,      ., x_varlist,  touse_var) 
 	st_view(weight, ., weight_var, touse_var) 	
+	K = cols(x)
+	N = length(y)
 	// Calculate the full sample weighted covariance between each independent 
 	// variable and the dependent variable. (This is used both when calculating
 	// the series of lambda and, after cross-validation, when estimating the
@@ -249,19 +251,35 @@ void notEstimation(
 		else             alpha_vec = (alpha)
 		lambda_found_vec = J(length(alpha_vec), 1, .)
 		CVMSE_vec        = J(length(alpha_vec), 2, .)
-		// To ensure cross-validation samples are consistent we reset the seed
-		// in each loop. To ensure that we get varying estimates when the seed
-		// has not been set by the user, the value we seed to is random.
-		seed = rdiscrete(1,1,J(10000,1,0.0001))
+		// We divide the data into numfolds equally-sized (+- one observation)
+		// cross-validation subsamples, which are consistent across alpha.
+		Npersample = floor(N/numfolds)
+		cvsample = J(N, 4, .)
+		cvsample[,1] = 1::N
+		cvsample[,2] = runiform(N, 1)
+		_sort(cvsample, 2)
+		cvsample[,3] = 1::N
+		cvsample[,4] = ceil(cvsample[,3]:/Npersample)
+		cvsample[,4] = cvsample[,4] + 
+			  (cvsample[,4] :> numfolds) :* 
+			               (cvsample[,3] :- numfolds*Npersample :- cvsample[,4])
+		_sort(cvsample, 1)
+		cvsample = cvsample[,4]
+		// We contain each fold's cov_x (which in this algorithm is only found
+		// when necessary) within a single matrix, to avoid re-finding for
+		// various beta.
+		cov_x_byfold = J(K*numfolds, K, 0)
+		// And do similarly with each fold's cov_xy.
+		cov_xy_byfold = J(K, numfolds, .)	
+		// Within each iteration of the loop:
 		for (alphaindex=1; alphaindex<=length(alpha_vec); alphaindex++) {
 			thisalpha = alpha_vec[alphaindex]
-			rseed(seed)
 			// Select the series of lambda for which we will estimate beta. If
 			// lambda is provided, this is trivial. If not, the series depends
 			// on the data.
 			if (lambda==-1) lambda_vec = findLambda(cov_xy, thisalpha, numlambda, epsilon, tol)
 			else            lambda_vec = (lambda)
-			// We now run a function which finds the MSE-minimising lambda using 
+			// And run a function which finds the MSE-minimising lambda using 
 			// cross-validation. (CVMSE is a vector which crossValidateLambda 
 			// alters to include the minimal cross-validation mean error and the
 			// cross-validation mean error corresponding to the selected lambda.)
@@ -270,8 +288,9 @@ void notEstimation(
 			// weird to provide lambda but not alpha.
 			thisCVMSE = (.\.)
 			lambda_found_vec[alphaindex] = crossValidateLambda(
-				  numfolds, heuristic, x, y, weight, thisalpha, tol, lambda_vec,
-				  thisCVMSE)
+				  numfolds, heuristic, x, y, weight, cvsample,
+				  thisalpha, tol, lambda_vec,
+				  thisCVMSE, cov_x_byfold, cov_xy_byfold)
 			CVMSE_vec[alphaindex, ] = thisCVMSE'
 		}
 		// We select alpha on the basis of CVMSE[1, ], regardless of heuristic.
@@ -285,7 +304,8 @@ void notEstimation(
 		CVMSE        = CVMSE_vec[       minMSEindex, ]'
 	}
 	// Estimate the beta on the full data, given the lambda selected.
-	beta = findAllBeta(x, y, weight, alpha_found, tol, lambda_found, cov_xy)	
+	beta = findAllBeta(x, y, weight, alpha_found, tol, lambda_found,
+		cov_xy, J(K,K,0))	
 	// Calculate the weighted r2.
 	r   = y - x*beta
 	r2  = 1 - cross(r, weight, r)/cross(y, weight, y)
@@ -326,34 +346,38 @@ real colvector findLambda(real colvector cov_xy,
 // This function calculates the optimal lambda using cross-validation.
 real scalar crossValidateLambda(
 	real scalar numfolds, string scalar heuristic,
-	real matrix x, real colvector y, real colvector weight,
+	real matrix x, real colvector y, real colvector weight, real colvector cv,
 	real scalar alpha, real scalar tol, real colvector lambda_vec,
-	real colvector CVMSE)
+	real colvector CVMSE,
+	real matrix cov_x_byfold, real matrix cov_xy_byfold)
 {
 	N = length(y)
+	K = cols(x)
 	numlambda = length(lambda_vec)
-	// Divide the data into numfolds equally-sized (+- one observation) cross-
-	// validation subsamples.
-	Npersample = floor(N/numfolds)
-	cv = J(N, 4, .)
-	cv[,1] = 1::N
-	cv[,2] = runiform(N, 1)
-	_sort(cv, 2)
-	cv[,3] = 1::N
-	cv[,4] = ceil(cv[,3]:/Npersample)
-	cv[,4] = cv[,4] + (cv[,4] :> numfolds) :*  (cv[,3] :- numfolds*Npersample :- cv[,4])
-	_sort(cv, 1)
-	cv = cv[,4]
 	// Now for each subsample...
 	MSE = J(numfolds, numlambda, .)
 	for (s=1; s<=numfolds; s++) {
-		// estimate beta for all lambda, excluding that subsample,
+		// select the appropriate weights,
 		selectedweights = weightNorm(select(weight, cv:!=s))
+		// select the appropriate block of cov_x_byfold,
+		cov_x = cov_x_byfold[(s-1)*K + 1 :: s*K, ]
+		// if cov_xy for that fold has already been calculated, use it, and 
+		// otherwise calculate it,
+		if (cov_xy_byfold[, s] == J(K, 1, .)) {
+			cov_xy = cross(standardise(select(x, cv:!=s), selectedweights),
+							selectedweights, 
+							demean(select(y, cv:!=s), selectedweights))
+			cov_xy_byfold[, s] = cov_xy
+		}
+		else cov_xy = cov_xy_byfold[, s]
+		// estimate beta for all lambda, excluding that subsample,
 		beta = findAllBeta(
 				standardise(select(x, cv:!=s), selectedweights),
 				demean(select(y, cv:!=s), selectedweights), 
 				selectedweights, 
-				alpha, tol, lambda_vec, .)
+				alpha, tol, lambda_vec, cov_xy, cov_x)
+		// retain the newly-edited block of cov_x_byfold,
+		cov_x_byfold[(s-1)*K + 1 :: s*K, ] = cov_x
 		// extrapolate beta to that subsample for all lambda and store within
 		// an N_s x numlambda matrix,
 		unselectedweights = weightNorm(select(weight, cv:==s))
@@ -389,7 +413,8 @@ real scalar crossValidateLambda(
 	// Return the lambda selected and (implicitly) a vector composed of the
 	// minimal cross-validation mean error and the cross-validation mean error
 	// corresponding to the selected lambda -- these only differ if heuristic
-	// == "1se".
+	// == "1se". This function also implicitly returns cov_x_byfold and 
+	// cov_xy_byfold.
 	CVMSE = (MSEmean[minMSE] \ MSEmean[selectindex(lambda :== lambda_vec)])
 	return(lambda)
 }
@@ -398,19 +423,13 @@ real scalar crossValidateLambda(
 real matrix findAllBeta(
 	real matrix x, real colvector y, real colvector weight,
 	real scalar alpha, real scalar tol, real colvector lambda,
-	real colvector cov_xy)
+	real colvector cov_xy, real matrix cov_x)
 {
 	K         = cols(x)
 	numlambda = length(lambda)
 	// Calculate wx2: the K vector with kth element equal to the inner
 	// product of weight and x_k^2. 
 	wx2    = (x:^2)' * weight
-	// If cov_xy (the K vector with kth element equal to the 'triple inner
-	// product' of weight, x_k and y) has not been provided, calculate that too.
-	if (cov_xy == .) cov_xy = cross(x, weight, y)
-	// Instantiate a matrix storing the (weighted) covariances of the
-	// x's -- but leave this empty, as we only fill it as necessary.
-	cov_x = J(K, K, 0)
 	// Store the series of beta in a K x numlamda matrix, with Kth column equal
 	// to the beta found from the Kth lambda.
 	beta = J(K, numlambda, 0)
@@ -432,7 +451,7 @@ real matrix findAllBeta(
 	// isn't necessarily efficient -- sometimes hot starts are quicker.
 	else beta = findBeta(x, weight, J(K,1,0), lambda[1],
 												alpha, tol, cov_x, cov_xy, wx2)
-	// Return the the beta matrix.
+	// Return the the beta matrix. This function also implicitly edits cov_x.
 	return(beta)
 }
 
