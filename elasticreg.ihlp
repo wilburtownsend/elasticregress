@@ -46,7 +46,8 @@
 {synopt:{opt epsilon}}ratio of the smallest lambda tested to the largest — default is 0.001, the user is prompted when this constraint is binding. {p_end}
 {synoptline}
 {syntab:Technical options which you can hopefully ignore}
-{synopt:{opt tol}}tolerance on the Euclidean norm of beta. {p_end}
+{synopt:{opt tol}}tolerance on the Euclidean norm of beta; {p_end}
+{synopt:{opt collinear}}retain collinear independent variables. {p_end}
 {synoptline}
 {p2colreset}{...}
 {p 4 6 2}
