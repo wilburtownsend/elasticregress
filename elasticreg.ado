@@ -288,7 +288,11 @@ void notEstimation(
 			CVMSE_vec[alphaindex, ] = thisCVMSE'
 		}
 		// We select alpha on the basis of CVMSE[1, ], regardless of heuristic.
+		// If CVMSE[1, ] doesn't have a unique minimum (e.g. because lambda is 
+		// set to its maximal value regardless of alpha and thus 
+		// beta(lambda_min) = 0) we select the largest such alpha.
 		minMSEindex  = selectindex(CVMSE_vec[,1] :== min(CVMSE_vec[,1]))
+		minMSEindex  = minMSEindex[length(minMSEindex)]
 		alpha_found  = alpha_vec[       minMSEindex]
 		lambda_found = lambda_found_vec[minMSEindex]
 		CVMSE        = CVMSE_vec[       minMSEindex, ]'
