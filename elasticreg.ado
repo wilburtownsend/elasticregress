@@ -523,18 +523,19 @@ real scalar softThreshold(real scalar z, real scalar gamma)
 	else                             return(0)
 }
 
-// This produces a de-meaned vector.
+// This produces a de-meaned vector. Weights must be normalized.
 real colvector demean(real colvector vec, real colvector w)
 {
-	return(vec :- vec'*weightNorm(w))
+	return(vec :- vec'*w)
 }
 
-// This standardises a matrix of variables (constant variables are left unstandardised).
+// This standardises a matrix of variables (constant variables are left
+// unstandardised). Weights must be normalized.
 real matrix standardise(real matrix x, real colvector w)
 {	
-	xmean = x'*weightNorm(w)
+	xmean = x'*w
 	xsd   = J(cols(x),1,.)
-	for (k=1;k<=cols(x);k++) xsd[k,1] = sqrt(((x[,k] :- xmean[k]):^2)'*weightNorm(w))
+	for (k=1;k<=cols(x);k++) xsd[k,1] = sqrt(((x[,k] :- xmean[k]):^2)'*w)
 	if (sum((xsd:==0)) > 0) ///
 			   xsd[selectindex(xsd:==0)] = J(length(selectindex(xsd:==0)), 1, 1)
 	return((x :- xmean'):/xsd')
