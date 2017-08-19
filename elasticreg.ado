@@ -495,7 +495,7 @@ void covUpdate(
 	for (k=1; k<=K; k++) {
 		// finding the element of beta,
 		j = elements[k]
-		// determining if the element changes,
+		// finding the new value of beta,
 		beta_old_j = beta[j]
 		z = cov_xy[j] - cov_x[j,]*beta + beta_old_j
 		if (cov_xy[j] == 0) beta_new_j = 0
@@ -503,10 +503,11 @@ void covUpdate(
 		if (beta_new_j == .) ///
 			_error("Beta became missing. Please report this bug to " +
 									  "https://github.com/wilbur-t/elasticreg.")
-		// if so, updating the beta vector and adding the corresponding
-		// covariate to the cov_x matrix,
-		 if (beta_old_j != beta_new_j) {
-			beta[j] = beta_new_j
+		beta[j] = beta_new_j
+		// determining if the new beta is non-zero,
+		 if (beta_new_j != 0) {			
+			// if so, adding the corresponding covariate to the cov_x matrix
+			// if necessary,
 			if (beta_old_j == 0) updateCovX(x, weight, j, cov_x)
 		 }
 		 // and if not, removing the element from the elements vector.
