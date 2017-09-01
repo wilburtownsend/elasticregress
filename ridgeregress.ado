@@ -1,8 +1,8 @@
 *! version 0.1
 
 * This command calculates the ridge regression estimator of a linear regression.
-* It is a wrapper for elasticreg.
-program define ridgereg, eclass byable(onecall)
+* It is a wrapper for elasticregress.
+program define ridgeregress, eclass byable(onecall)
 	version 14
 
 syntax varlist(min=2 numeric fv) [if] [in] [aweight], [             ///
@@ -11,10 +11,10 @@ syntax varlist(min=2 numeric fv) [if] [in] [aweight], [             ///
 	
 if _by() local byprefix by `_byvars': 
 
-`byprefix' elasticreg `varlist' `if' `in' [`aweight'], alpha(0)      ///
+`byprefix' elasticregress `varlist' `if' `in' [`aweight'], alpha(0)      ///
 	lambda(`lambda') numlambda(`numlambda') `lambda1se' `lambdamin'  ///
 	numfolds(`numfolds') epsilon(`epsilon') tol(`tol')  `collinear'
 
-ereturn local cmd "ridgereg" 
+ereturn local cmd "ridgeregress" 
 	
 end
