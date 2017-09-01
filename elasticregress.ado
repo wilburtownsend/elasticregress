@@ -1,5 +1,5 @@
 *! version 0.2
-program define elasticreg, eclass byable(recall)
+program define elasticregress, eclass byable(recall)
 	version 14
 
 syntax varlist(min=2 numeric fv) [if] [in] [aweight], [             ///
@@ -179,7 +179,7 @@ else              ereturn scalar numalpha      = `numalpha'
 if `lambda' != -1 ereturn scalar numlambda      = .
 else              ereturn scalar numlambda      = `numlambda'
 ereturn local varlist_nonzero `varlist_nonzero'
-ereturn local cmd "elasticreg" 
+ereturn local cmd "elasticregress" 
 
 * Display the results.
 if      `alpha' == 1 local title LASSO regression
@@ -409,7 +409,7 @@ real scalar crossValidateLambda(
 	// if the maximal lambda was truncated.
 	if (lambda_vec[minMSE] == lambda_vec[1] & alpha < 0.001) { 
 		display("Warning: the largest λ tested was the MSE-minimising λ.")
-		display("elasticreg includes a very large λ for ridge regression but")
+		display("elasticregress includes a very large λ for ridge regression but")
 		display("here it appears that this λ constraint is binding.")
 	}
 	// Return the lambda selected and (implicitly) a vector composed of the
@@ -502,7 +502,7 @@ void covUpdate(
 		else beta_new_j = softThreshold(z, lambda*alpha) / (1 + lambda*(1-alpha))
 		if (beta_new_j == .) ///
 			_error("Beta became missing. Please report this bug to " +
-									  "https://github.com/wilbur-t/elasticreg.")
+									  "https://github.com/wilbur-t/elasticregress.")
 		beta[j] = beta_new_j
 		// determining if the new beta is non-zero,
 		 if (beta_new_j != 0) {			
