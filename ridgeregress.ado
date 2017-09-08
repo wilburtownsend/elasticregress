@@ -11,8 +11,8 @@ syntax varlist(min=2 numeric fv) [if] [in] [aweight], [             ///
 	
 if _by() local byprefix by `_byvars': 
 
-`byprefix' elasticregress `varlist' `if' `in' [`aweight'], alpha(0)      ///
-	lambda(`lambda') numlambda(`numlambda') `lambda1se' `lambdamin'  ///
+`byprefix' elasticregress `varlist' `if' `in' [`weight'`exp'], alpha(0)      ///
+	lambda(`lambda') numlambda(`numlambda') `lambda1se' `lambdamin'          ///
 	numfolds(`numfolds') epsilon(`epsilon') tol(`tol')  `collinear'
 
 ereturn local cmd "ridgeregress" 

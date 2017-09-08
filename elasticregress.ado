@@ -46,12 +46,6 @@ local indvars_uncoded  `r(varlist)'
 fvrevar `indvars_uncoded'
 local indvars_coded    `r(varlist)'
 
-* If a weight is not provided, set all weights equal.
-if "`weight'" == "" {
-	tempvar weight
-	quietly generate `weight' = 1
-}
-
 * Count observations.
 summarize `touse', meanonly
 local N = _N*`r(mean)'
@@ -111,10 +105,12 @@ if !inrange(`numfolds', 2, `N') {
 }
 
 * Format the data: 
-* ... making the weights sum to 1,
+* ... making the weights sum to 1 (or generating a weight=1/N if not provided),
 tempvar weight_sum1
-summarize `weight' if `touse', meanonly
-quietly generate `weight_sum1' = `weight'/(`N' * r(mean))
+if "`weight'" == "" quietly generate `weight_sum1' = 1 
+else                quietly generate `weight_sum1' `exp'
+summarize `weight_sum1' if `touse', meanonly
+quietly replace `weight_sum1' = `weight_sum1'/(`N' * r(mean))
 * ... setting beta_0 equal to the dependent variable's mean and making the
 *     dependent variable mean zero,
 tempvar depvar_demeaned 
