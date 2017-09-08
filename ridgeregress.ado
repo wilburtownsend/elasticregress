@@ -1,4 +1,4 @@
-*! version 0.1
+*! version 1.0
 
 * This command calculates the ridge regression estimator of a linear regression.
 * It is a wrapper for elasticregress.
