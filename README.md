@@ -1,5 +1,7 @@
 # elasticregress
 lasso, ridge regression and elastic net regression
+
+To install elasticregress, type	`ssc install elasticregress` into the Stata terminal.
  
 The elasticregress package is a Stata implementation of the Friedman,
 Hastie and Tibshirani (2010, JStatSoft) coordinate descent algorithm
