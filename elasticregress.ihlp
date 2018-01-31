@@ -205,6 +205,7 @@ Consider re-running estimation with a smaller epsilon.
 {txt}{space 7}_cons {c |}{col 14}{res}{space 2} 37.49487
 {txt}{hline 13}{c BT}{hline 11}{hline 11}{hline 9}{hline 8}{hline 13}{hline 12}
 
+
 {marker results}{...}
 {title:Stored Results}
 
@@ -245,7 +246,6 @@ Consider re-running estimation with a smaller epsilon.
 
 {pstd}Wilbur Townsend{p_end}
 {pstd}wilbur.townsend@gmail.com{p_end}
-
 
 
 {marker references}{...}
