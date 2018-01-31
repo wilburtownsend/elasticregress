@@ -6,7 +6,7 @@ syntax varlist(min=2 numeric fv) [if] [in] [aweight], [             ///
 	alpha(real -1)  numalpha(integer 6)                             ///
 	lambda(real -1) numlambda(integer 100) lambdamin lambda1se      ///
 	numfolds(integer 10) epsilon(real 0.001)                        ///
-	tol(real 0.001) collinear] 
+	tol(real -1) collinear] 
 
 /*
   alpha is the weight placed on the L1 (LASSO) constraint and (1-alpha) is the 
@@ -92,8 +92,8 @@ if (`epsilon' <= 0) {
 	exit
 }
 
-* Assert that tol is >= 0.
-if (`tol' < 0) {
+* Assert that tol is >= 0 when provided.
+if (`tol' < 0 & `tol' != -1) {
 	display as error `"tol cannot be negative."'
 	exit
 }
@@ -134,6 +134,13 @@ forvalues j = 1/`K' {
 	tempname x_std
 	quietly generate `x_std' = (`xname' - `r(mean)')/`sd_unless0'
 	local indvars_std `indvars_std' `x_std'
+}
+
+* If tol is not provided, it equals the least of 0.001 and abs(0.0001*var(y)).
+if `tol' == -1 {
+	quietly summarize `depvar' [aweight = `weight_sum1'] if `touse'
+	local tol = min(abs(0.0001*`r(Var)'), 0.001)
+	display "`tol'"
 }
 
 * Estimate the regression within Mata, storing outputs in temporary matrices.
