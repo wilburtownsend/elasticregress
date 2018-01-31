@@ -329,7 +329,7 @@ real colvector findLambda(real colvector cov_xy,
 						  real scalar alpha, real scalar numlambda,
 						  real scalar epsilon, real scalar tol)
 {
-	lambda_max      = max(cov_xy)/max((alpha, 0.001)) 
+	lambda_max      = max(abs(cov_xy))/max((alpha, 0.001)) 
 	lambda_min      = epsilon * lambda_max
 	// We allow for the trivial case when the empirical correlation between all
 	// of the x's and y is 0 by setting lambda equal to zero.
