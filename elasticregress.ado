@@ -140,7 +140,6 @@ forvalues j = 1/`K' {
 if `tol' == -1 {
 	quietly summarize `depvar' [aweight = `weight_sum1'] if `touse'
 	local tol = min(abs(0.0001*`r(Var)'), 0.001)
-	display "`tol'"
 }
 
 * Estimate the regression within Mata, storing outputs in temporary matrices.
