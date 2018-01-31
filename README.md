@@ -14,7 +14,7 @@ with K-fold cross-validation.
 Keywords:
 lasso, ridge regression, elastic net, regularized regression, machine learning, linear regression
 
-Requires: Stata version 14.0
+Requires: Stata version 13.0
 
 Distribution date: 20170809
 

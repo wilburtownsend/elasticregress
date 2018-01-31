@@ -1,6 +1,6 @@
 *! version 1.1
 program define elasticregress, eclass byable(recall)
-	version 14
+	version 13
 
 syntax varlist(min=2 numeric fv) [if] [in] [aweight], [             ///
 	alpha(real -1)  numalpha(integer 6)                             ///
@@ -208,7 +208,7 @@ end
 
 
 
-version 14
+version 13
 mata:
 
 // This function load our data into Mata and calls our estimation subroutine. It
