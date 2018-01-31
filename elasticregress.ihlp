@@ -8,6 +8,7 @@
 {viewerjumpto "Remarks"        "elasticregress##remarks"}{...}
 {viewerjumpto "Examples"       "elasticregress##examples"}{...}
 {viewerjumpto "Stored results" "elasticregress##results"}{...}
+{viewerjumpto "Author"         "elasticregress##author"}{...}
 {viewerjumpto "References"     "elasticregress##references"}{...}
 
 {title:Title}
@@ -237,6 +238,14 @@ Consider re-running estimation with a smaller epsilon.
 {p2col 5 20 24 2: Functions}{p_end}
 {synopt:{cmd:e(sample)}}mark estimation sample{p_end}
 {p2colreset}{...}
+
+
+{marker author}{...}
+{title:Author}
+
+{pstd}Wilbur Townsend{p_end}
+{pstd}wilbur.townsend@gmail.com{p_end}
+
 
 
 {marker references}{...}
