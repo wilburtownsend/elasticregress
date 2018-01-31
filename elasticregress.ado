@@ -1,4 +1,4 @@
-*! version 1.0
+*! version 1.1
 program define elasticregress, eclass byable(recall)
 	version 14
 
