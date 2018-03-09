@@ -220,7 +220,8 @@ void notEstimation(
 	real scalar alpha, real scalar numalpha,
 	real scalar lambda, real scalar numlambda, string scalar heuristic,
 	real scalar epsilon,  real scalar tol,
-	string scalar beta_handle, string scalar lambda_handle, string scalar alpha_handle, string scalar r2_handle,
+	string scalar beta_handle, string scalar lambda_handle,
+	string scalar alpha_handle, string scalar r2_handle,
 	string scalar cvmse_minimal_handle, string scalar cvmse_actual_handle	
 	)
 {
@@ -271,7 +272,7 @@ void notEstimation(
 		cvsample = cvsample[,4]
 		// We contain each fold's cov_x (which in this algorithm is only found
 		// when necessary) within a single matrix, to avoid re-finding for
-		// various beta.
+		// various alpha/lambda.
 		cov_x_byfold = J(K*numfolds, K, 0)
 		// And do similarly with each fold's cov_xy.
 		cov_xy_byfold = J(K, numfolds, .)	
@@ -561,7 +562,8 @@ void updateCovX(
 	assert(issymmetric(cov_x))
 }
 
-// xx delete this later -- it's useful for debugging.
+// This function is useful for debugging. Credit:
+//  			   https://www.stata.com/statalist/archive/2007-08/msg01077.html
 void matlist(
     real matrix X,
     | string scalar fmt
