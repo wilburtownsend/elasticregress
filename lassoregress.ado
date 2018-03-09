@@ -1,4 +1,4 @@
-*! version 1.1
+*! version 1.2
 
 * This command calculates the LASSO estimator of a linear regression. It is a
 * wrapper for elasticregress.
