@@ -1,5 +1,5 @@
 *! version 1.2
-program define elasticregress, eclass byable(recall)
+program define elasticregresstmp, eclass byable(recall)
 	version 13
 
 syntax varlist(min=2 numeric fv) [if] [in] [aweight], [             ///
@@ -45,6 +45,8 @@ local indvars_uncoded  `r(varlist)'
 * Create temporary variables for collinear and factor variables.
 fvrevar `indvars_uncoded'
 local indvars_coded    `r(varlist)'
+* Count covariates.
+local K = wordcount("`indvars_coded'")
 
 * Count observations.
 summarize `touse', meanonly
@@ -111,30 +113,6 @@ if "`weight'" == "" quietly generate `weight_sum1' = 1
 else                quietly generate `weight_sum1' `exp'
 summarize `weight_sum1' if `touse', meanonly
 quietly replace `weight_sum1' = `weight_sum1'/(`N' * r(mean))
-* ... setting beta_0 equal to the dependent variable's mean and making the
-*     dependent variable mean zero,
-tempvar depvar_demeaned 
-summarize `depvar' [aweight = `weight_sum1'] if `touse', meanonly
-local ymean = r(mean)
-quietly generate `depvar_demeaned' = `depvar' - r(mean)
-* ... and standardising the x's, storing their standard deviations and means,
-*     (note that we don't uncorrect the standard deviation for the degrees of
-*      freedom so that x:^2*w = 1).
-tempname mean_x
-tempname sd_x
-local K = wordcount("`indvars_coded'")
-matrix `sd_x'   = J(`K', 1, .)
-matrix `mean_x' = J(`K', 1, .)
-forvalues j = 1/`K' {
-	local xname : word `j' of `indvars_coded'
-	quietly summarize `xname' [aweight = `weight_sum1'] if `touse'
-	matrix `mean_x'[`j',1] = `r(mean)'
-	local sd_unless0 = cond(`r(sd)'==0, 1, `r(sd)'*sqrt((`N'-1)/`N'))
-	matrix `sd_x'[`j',  1] = `sd_unless0'
-	tempname x_std
-	quietly generate `x_std' = (`xname' - `r(mean)')/`sd_unless0'
-	local indvars_std `indvars_std' `x_std'
-}
 
 * If tol is not provided, it equals the least of 0.001 and abs(0.0001*var(y)).
 if `tol' == -1 {
@@ -144,27 +122,23 @@ if `tol' == -1 {
 
 * Estimate the regression within Mata, storing outputs in temporary matrices.
 tempname beta_handle lambda_handle alpha_handle r2_handle ///
-	     cvmse_minimal_handle cvmse_actual_handle beta0
+	     cvmse_minimal_handle cvmse_actual_handle
 mata: notEstimation(                                                        ///
-	"`depvar_demeaned'", "`indvars_std'", "`weight_sum1'", "`touse'",       ///
+	"`depvar'", "`indvars_coded'", "`weight_sum1'", "`touse'",     ///
 	`numfolds', `alpha', `numalpha', `lambda', `numlambda', "`heuristic'",  ///
 	`epsilon', `tol',					                                    ///
 	"`beta_handle'", "`lambda_handle'", "`alpha_handle'",                   ///
 	"`r2_handle'", "`cvmse_minimal_handle'", "`cvmse_actual_handle'")
-* Replace the estimated beta with one corresponding to the unstandardised
-* variables and note the list of the non-zero covariates.
+* Set beta rownames.
+matrix rownames `beta_handle' = `indvars_uncoded' _cons
+
+* Note the list of the non-zero covariates.
 forvalues j = 1/`K' {
-	matrix `beta_handle'[`j',1] = `beta_handle'[`j',1] / `sd_x'[`j',1]
 	if `beta_handle'[`j',1] != 0 {
 		local xname : word `j' of `indvars_uncoded'
 		local varlist_nonzero `varlist_nonzero' `xname'
 	}
 }
-* Calculate the intercept as mean(Y) - beta' * mean(X)
-matrix `beta0' = `ymean' - `beta_handle''*`mean_x'
-matrix `beta_handle' = (`beta_handle' \ `beta0')
-* Set beta rownames.
-matrix rownames `beta_handle' = `indvars_uncoded' _cons
 
 * Return the covariates of interest.
 matrix `beta_handle' = `beta_handle''
@@ -222,7 +196,7 @@ void notEstimation(
 	real scalar epsilon,  real scalar tol,
 	string scalar beta_handle, string scalar lambda_handle,
 	string scalar alpha_handle, string scalar r2_handle,
-	string scalar cvmse_minimal_handle, string scalar cvmse_actual_handle	
+	string scalar cvmse_minimal_handle, string scalar cvmse_actual_handle
 	)
 {
 	// Import data into Mata.
@@ -238,7 +212,7 @@ void notEstimation(
 	// variable and the dependent variable. (This is used both when calculating
 	// the series of lambda and, after cross-validation, when estimating the
 	// final beta, so for efficiency we calculate it only once).
-	cov_xy = cross(x, weight, y)
+	cov_xy = cross(standardise(x, weight, J(K,1,.)), weight, y)
 	// If alpha and lambda are both provided, we select them and move on. If not
 	// we loop first over a vector of possible alphas (which will be a singleton
 	// when alpha is provided but lambda is not) and, for each alpha, calculate
@@ -272,7 +246,7 @@ void notEstimation(
 		cvsample = cvsample[,4]
 		// We contain each fold's cov_x (which in this algorithm is only found
 		// when necessary) within a single matrix, to avoid re-finding for
-		// various alpha/lambda.
+		// various alpha/lambda. Note that this corresponds to standardised x's.
 		cov_x_byfold = J(K*numfolds, K, 0)
 		// And do similarly with each fold's cov_xy.
 		cov_xy_byfold = J(K, numfolds, .)	
@@ -309,14 +283,15 @@ void notEstimation(
 		CVMSE        = CVMSE_vec[       minMSEindex, ]'
 	}
 	// Estimate the beta on the full data, given the lambda selected.
-	beta = findAllBeta(x, y, weight, alpha_found, tol, lambda_found,
-		cov_xy, J(K,K,0))	
+	beta = findAllBeta(x, demean(y, weight), weight, alpha_found, tol,
+		lambda_found, cov_xy, J(K,K,0))
+	intercept = weight'*(y :- x*beta)
 	// Calculate the weighted r2.
-	r   = y - x*beta
-	r2  = 1 - cross(r, weight, r)/cross(y, weight, y)
+	r   = y - x*beta :- intercept
+	r2  = 1 - cross(r, weight, r)/(cross(y, weight, y) - (weight'*y)^2)
 	// Store lambda, beta, the minimal cross-validation MSE and the selected
 	// cross-validation MSE.
-	st_matrix(beta_handle, beta) 
+	st_matrix(beta_handle, (beta \ intercept)) 
 	st_numscalar(lambda_handle, lambda_found) 
 	st_numscalar(alpha_handle, alpha_found) 
 	st_numscalar(r2_handle, r2) 
@@ -369,7 +344,7 @@ real scalar crossValidateLambda(
 		// if cov_xy for that fold has already been calculated, use it, and 
 		// otherwise calculate it,
 		if (cov_xy_byfold[, s] == J(K, 1, .)) {
-			cov_xy = cross(standardise(select(x, cv:!=s), selectedweights),
+			cov_xy = cross(standardise(select(x, cv:!=s), selectedweights, J(K,1,.)),
 							selectedweights, 
 							demean(select(y, cv:!=s), selectedweights))
 			cov_xy_byfold[, s] = cov_xy
@@ -377,17 +352,17 @@ real scalar crossValidateLambda(
 		else cov_xy = cov_xy_byfold[, s]
 		// estimate beta for all lambda, excluding that subsample,
 		beta = findAllBeta(
-				standardise(select(x, cv:!=s), selectedweights),
-				demean(select(y, cv:!=s), selectedweights), 
+				select(x, cv:!=s), demean(select(y, cv:!=s), selectedweights), 
 				selectedweights, 
 				alpha, tol, lambda_vec, cov_xy, cov_x)
 		// retain the newly-edited block of cov_x_byfold,
 		cov_x_byfold[(s-1)*K + 1 :: s*K, ] = cov_x
+		// find the intercept,
+		intercept = selectedweights'*(select(y, cv:!=s) :- select(x, cv:!=s)*beta)
 		// extrapolate beta to that subsample for all lambda and store within
 		// an N_s x numlambda matrix,
 		unselectedweights = weightNorm(select(weight, cv:==s))
-		r = demean(select(y, cv:==s), unselectedweights) :- 
-							standardise(select(x, cv:==s), unselectedweights)*beta
+		r = select(y, cv:==s) :- select(x, cv:==s)*beta :- intercept
 		// and calculate the weighted MSE for each lambda.
 		for (l=1; l<=numlambda; l++) MSE[s,l] = 
 									 cross(r[,l], unselectedweights, r[,l])
@@ -432,6 +407,10 @@ real matrix findAllBeta(
 {
 	K         = cols(x)
 	numlambda = length(lambda)
+	// First standardise the covariates on this (sub)sample, storing their
+	// variances.
+	xsd = J(K,1,.)
+	x_stand = standardise(x, weight, xsd)
 	// Store the series of beta in a K x numlamda matrix, with Kth column equal
 	// to the beta found from the Kth lambda.
 	beta = J(K, numlambda, 0)
@@ -445,15 +424,17 @@ real matrix findAllBeta(
 	// validation it makes sense to leave to at zero in that case too.)
 	if (numlambda > 1) {
 		for (l=2; l<=numlambda; l++) {
-					beta[,l] = findBeta(x, weight, beta[,l-1], lambda[l],
-												alpha, tol, cov_x, cov_xy)
+					beta[,l] = findBeta(x_stand, weight, beta[,l-1], lambda[l],
+										              alpha, tol, cov_x, cov_xy)
 		}
 	}
 	// Otherwise we estimate beta(lambda) starting from beta = 0. Note that this
 	// isn't necessarily efficient -- sometimes hot starts are quicker.
-	else beta = findBeta(x, weight, J(K,1,0), lambda[1],
+	else beta = findBeta(x_stand, weight, J(K,1,0), lambda[1],
 												alpha, tol, cov_x, cov_xy)
-	// Return the the beta matrix. This function also implicitly edits cov_x.
+	// Replace beta with one corresponding to un-standardised covariates.
+	beta = beta :/ xsd
+	// Return the beta matrix. This function also implicitly edits cov_x.
 	return(beta)
 }
 
@@ -467,7 +448,7 @@ real colvector findBeta(
 	beta          = beta_start
 	beta_previous = .
 	elements      = .
-	// We loop,
+	// Now we find the beta for the standardised covariates: we loop,
 	while (1) {	
 		// in each loop, starting with the full set of variables,
 		elements_previous = elements
@@ -527,21 +508,22 @@ real scalar softThreshold(real scalar z, real scalar gamma)
 	else                             return(0)
 }
 
-// This produces a de-meaned vector. Weights must be normalized.
-real colvector demean(real colvector vec, real colvector w)
+// This produces a de-(column) meaned matrix. Weights must be normalized.
+real matrix demean(real matrix mat, real colvector w)
 {
-	return(vec :- vec'*w)
+	return(mat :- w'*mat)
 }
 
 // This standardises a matrix of variables (constant variables are left
 // unstandardised). Weights must be normalized.
-real matrix standardise(real matrix x, real colvector w)
+real matrix standardise(real matrix x, real colvector w, real colvector xsd)
 {	
 	xmean = x'*w
-	xsd   = J(cols(x),1,.)
 	for (k=1;k<=cols(x);k++) xsd[k,1] = sqrt(((x[,k] :- xmean[k]):^2)'*w)
 	if (sum((xsd:==0)) > 0) ///
 			   xsd[selectindex(xsd:==0)] = J(length(selectindex(xsd:==0)), 1, 1)
+   	// Return the standardised covariates. This function also implicitly edits
+	// xsd.
 	return((x :- xmean'):/xsd')
 }
 
