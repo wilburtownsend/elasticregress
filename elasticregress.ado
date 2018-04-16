@@ -1,5 +1,5 @@
 *! version 1.2
-program define elasticregresstmp, eclass byable(recall)
+program define elasticregress, eclass byable(recall)
 	version 13
 
 syntax varlist(min=2 numeric fv) [if] [in] [aweight], [             ///
@@ -106,8 +106,7 @@ if !inrange(`numfolds', 2, `N') {
 	exit
 }
 
-* Format the data: 
-* ... making the weights sum to 1 (or generating a weight=1/N if not provided),
+* Make the weights sum to 1 (or generating a weight=1/N if not provided).
 tempvar weight_sum1
 if "`weight'" == "" quietly generate `weight_sum1' = 1 
 else                quietly generate `weight_sum1' `exp'
