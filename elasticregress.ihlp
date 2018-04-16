@@ -1,6 +1,5 @@
 {smcl}
-{* *! version 1.2.1  07mar2013}{...}
-{findalias asfradohelp}{...}
+{* *! version 1.3  16apr2018}{...}
 {vieweralsosee "" "--"}{...}
 {vieweralsosee "elasticregress" "help elasticregress"}{...}
 {viewerjumpto "Syntax"         "elasticregress##syntax"}{...}
