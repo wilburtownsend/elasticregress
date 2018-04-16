@@ -127,18 +127,18 @@ Calculate a LASSO model: {p_end}{pstd}
 {stata lassoregress mpg weight foreign} {p_end}
 
 {txt}LASSO regression{col 40}Number of observations{col 67}= {res}        74
-{col 40}{txt}R-squared{col 67}= {res}    0.6459
+{col 40}{txt}R-squared{col 67}= {res}    0.6466
 {col 40}{txt}alpha{col 67}= {res}    1.0000
-{col 40}{txt}lambda{col 67}= {res}    0.4326
-{col 40}{txt}Cross-validation MSE{col 67}= {res}   11.5101
+{col 40}{txt}lambda{col 67}= {res}    0.4034
+{col 40}{txt}Cross-validation MSE{col 67}= {res}   12.0339
 {col 40}{txt}Number of folds{col 67}= {res}        10
 {col 40}{txt}Number of lambda tested{col 67}= {res}       100
 {txt}{hline 13}{c TT}{hline 11}{hline 11}{hline 9}{hline 8}{hline 13}{hline 12}
 {col 1}         mpg{col 14}{c |}      Coef.
 {hline 13}{c +}{hline 11}{hline 11}{hline 9}{hline 8}{hline 13}{hline 12}
-{space 6}weight {c |}{col 14}{res}{space 2}-.0054483
+{space 6}weight {c |}{col 14}{res}{space 2}-.0054861
 {txt}{space 5}foreign {c |}{col 14}{res}{space 2}        0
-{txt}{space 7}_cons {c |}{col 14}{res}{space 2} 37.74826
+{txt}{space 7}_cons {c |}{col 14}{res}{space 2} 37.86231
 {txt}{hline 13}{c BT}{hline 11}{hline 11}{hline 9}{hline 8}{hline 13}{hline 12}
 
 
@@ -153,14 +153,14 @@ Consider re-running estimation with a smaller epsilon.
 {col 40}{txt}R-squared{col 67}= {res}    0.2343
 {col 40}{txt}alpha{col 67}= {res}    0.0000
 {col 40}{txt}lambda{col 67}= {res}    4.6383
-{col 40}{txt}Cross-validation MSE{col 67}= {res}   20.5295
+{col 40}{txt}Cross-validation MSE{col 67}= {res}   27.1411
 {col 40}{txt}Number of folds{col 67}= {res}        10
 {col 40}{txt}Number of lambda tested{col 67}= {res}       100
 {txt}{hline 13}{c TT}{hline 11}{hline 11}{hline 9}{hline 8}{hline 13}{hline 12}
 {col 1}         mpg{col 14}{c |}      Coef.
 {hline 13}{c +}{hline 11}{hline 11}{hline 9}{hline 8}{hline 13}{hline 12}
 {space 6}weight {c |}{col 14}{res}{space 2}-.0010224
-{txt}{space 5}foreign {c |}{col 14}{res}{space 2} .6956365
+{txt}{space 5}foreign {c |}{col 14}{res}{space 2} .6956361
 {txt}{space 7}_cons {c |}{col 14}{res}{space 2} 24.17757
 {txt}{hline 13}{c BT}{hline 11}{hline 11}{hline 9}{hline 8}{hline 13}{hline 12}
 
@@ -189,19 +189,19 @@ Calculate an elastic-net regression: {p_end}{pstd}
 Consider re-running estimation with a smaller epsilon.
 
 {txt}Elastic-net regression{col 40}Number of observations{col 67}= {res}        74
-{col 40}{txt}R-squared{col 67}= {res}    0.6440
-{col 40}{txt}alpha{col 67}= {res}    1.0000
-{col 40}{txt}lambda{col 67}= {res}    0.4973
-{col 40}{txt}Cross-validation MSE{col 67}= {res}   11.7926
+{col 40}{txt}R-squared{col 67}= {res}    0.6622
+{col 40}{txt}alpha{col 67}= {res}    0.2000
+{col 40}{txt}lambda{col 67}= {res}    0.0232
+{col 40}{txt}Cross-validation MSE{col 67}= {res}   12.8399
 {col 40}{txt}Number of folds{col 67}= {res}        10
 {col 40}{txt}Number of alpha tested{col 67}= {res}         6
 {col 40}{txt}Number of lambda tested{col 67}= {res}       100
 {txt}{hline 13}{c TT}{hline 11}{hline 11}{hline 9}{hline 8}{hline 13}{hline 12}
 {col 1}         mpg{col 14}{c |}      Coef.
 {hline 13}{c +}{hline 11}{hline 11}{hline 9}{hline 8}{hline 13}{hline 12}
-{space 6}weight {c |}{col 14}{res}{space 2}-.0053644
-{txt}{space 5}foreign {c |}{col 14}{res}{space 2}        0
-{txt}{space 7}_cons {c |}{col 14}{res}{space 2} 37.49487
+{space 6}weight {c |}{col 14}{res}{space 2}-.0063764
+{txt}{space 5}foreign {c |}{col 14}{res}{space 2}-1.402116
+{txt}{space 7}_cons {c |}{col 14}{res}{space 2} 40.96739
 {txt}{hline 13}{c BT}{hline 11}{hline 11}{hline 9}{hline 8}{hline 13}{hline 12}
 
 
