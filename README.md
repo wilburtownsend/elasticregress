@@ -20,4 +20,4 @@ Distribution date: 20170809
 
 Author: Wilbur Townsend, Stanford University
 
-Support: https://github.com/wilbur-t/elasticregress
+Support: https://github.com/wilburtownsend/elasticregress
